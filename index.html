@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b0d12">
+<title>Strip Studio — RGB LED controller</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<style>
+  :root{
+    --bg:#0b0d12; --panel:#151922; --panel2:#1c2130; --line:#2a3142;
+    --text:#e8ecf4; --muted:#8a93a8; --accent:#7c9cff; --ok:#3ddc97; --warn:#ffb547; --bad:#ff5d6c;
+    --glow:#000;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  button,input,select,textarea{font:inherit;color:inherit}
+  button{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 14px;cursor:pointer}
+  button:active{transform:scale(.97)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#0b0d12;font-weight:600}
+  button.danger{border-color:#5a2a33;color:#ffb3bb}
+  button.small{padding:5px 10px;font-size:13px}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  input[type=text],input[type=number],input[type=time],select,textarea{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px}
+  textarea{width:100%;min-height:90px;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace}
+  input[type=color]{width:46px;height:38px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);padding:2px}
+  header{position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 12px 6px;border-bottom:1px solid var(--line)}
+  #glow{height:56px;border-radius:14px;background:var(--glow);box-shadow:0 0 34px 6px var(--glow);transition:background .08s linear, box-shadow .08s linear;margin-bottom:10px;border:1px solid #ffffff14;position:relative;overflow:hidden}
+  #glowLabel{position:absolute;right:10px;bottom:6px;font-size:11px;color:#fff;mix-blend-mode:difference;opacity:.7}
+  .bar{display:flex;gap:8px;align-items:center}
+  #status{flex:1;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #status.ok{color:var(--ok)} #status.warn{color:var(--warn)} #status.bad{color:var(--bad)}
+  #powerBtn{width:46px;font-size:18px;padding:6px}
+  #powerBtn.on{background:var(--ok);color:#0b0d12;border-color:var(--ok)}
+  .row{display:flex;gap:10px;align-items:center;margin-top:8px}
+  .row label{min-width:78px;color:var(--muted);font-size:13px}
+  .row .val{min-width:34px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px}
+  #runnerBox{margin-top:8px;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+  #runnerBox[hidden]{display:none}
+  #runnerName{color:var(--text);flex:1}
+  nav{display:flex;gap:6px;overflow-x:auto;padding:8px 12px;border-bottom:1px solid var(--line);scrollbar-width:none}
+  nav::-webkit-scrollbar{display:none}
+  nav button{white-space:nowrap;border-radius:999px;padding:7px 14px;font-size:14px}
+  nav button.active{background:var(--text);color:var(--bg);border-color:var(--text)}
+  main{padding:12px;max-width:720px;margin:0 auto 60px}
+  section{display:none} section.active{display:block}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+  .card h3{margin:0 0 10px;font-size:15px}
+  .hint{color:var(--muted);font-size:13px;margin:6px 0 0}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:8px}
+  .sw{height:44px;border-radius:10px;border:1px solid #ffffff22;cursor:pointer}
+  .btns{display:flex;flex-wrap:wrap;gap:8px}
+  .btns.wide button{flex:1 1 calc(50% - 8px)}
+  .step{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+  .step input[type=number]{width:78px}
+  .step .lbl{font-size:11px;color:var(--muted)}
+  .list-item{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+  .list-item:last-child{border-bottom:0}
+  .list-item .grow{flex:1;min-width:0}
+  .list-item .sub{font-size:12px;color:var(--muted)}
+  .chip{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-2px;margin-right:2px;border:1px solid #ffffff33}
+  #meter{height:10px;border-radius:6px;background:var(--panel2);overflow:hidden;margin-top:10px}
+  #meterFill{height:100%;width:0;background:linear-gradient(90deg,var(--ok),var(--warn),var(--bad))}
+  canvas#imgCanvas{width:100%;max-height:220px;object-fit:contain;border-radius:10px;background:#000;display:none}
+  #timelineBar{height:18px;border-radius:6px;margin-top:8px;display:none}
+  #log{max-height:220px;overflow:auto;white-space:pre-wrap;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;color:var(--muted);margin:0}
+  .banner{background:#3a2a10;border:1px solid #6b4b14;color:#ffd9a0;border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:13px}
+  .banner[hidden]{display:none}
+  .days{display:flex;gap:4px;flex-wrap:wrap}
+  .days label{display:flex;align-items:center;justify-content:center;width:34px;height:30px;border:1px solid var(--line);border-radius:8px;font-size:12px;cursor:pointer;color:var(--muted)}
+  .days input{display:none}
+  .days input:checked+span{color:var(--bg)}
+  .days label:has(input:checked){background:var(--accent);border-color:var(--accent);color:var(--bg)}
+  .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;z-index:20;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
+  .toast.show{opacity:1}
+  .inline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .inline > input[type=text]{flex:1;min-width:120px}
+</style>
+</head>
+<body>
+
+<header>
+  <div id="glow"><span id="glowLabel">preview</span></div>
+  <div class="bar">
+    <button id="connectBtn" class="primary">Connect</button>
+    <span id="status">Not connected</span>
+    <button id="powerBtn" title="Power">⏻</button>
+  </div>
+  <div class="row">
+    <label for="bright">Brightness</label>
+    <input type="range" id="bright" min="1" max="100" value="100">
+    <span class="val" id="brightVal">100</span>
+  </div>
+  <div id="runnerBox" hidden>Running: <span id="runnerName"></span><button class="small" id="stopBtn">Stop</button></div>
+</header>
+
+<nav id="tabs">
+  <button data-tab="color" class="active">Colour</button>
+  <button data-tab="effects">Effects</button>
+  <button data-tab="music">Music</button>
+  <button data-tab="media">Image / Text</button>
+  <button data-tab="scenes">Scenes</button>
+  <button data-tab="schedule">Schedule</button>
+  <button data-tab="more">More</button>
+</nav>
+
+<main>
+  <div class="banner" id="btBanner" hidden>
+    Web Bluetooth isn't available in this browser. Open this page in <b>Chrome on Android</b> (or Edge / Samsung Internet) over <b>https</b>. On iPhone, Safari can't do it, so use the <b>Bluefy</b> browser. You can still try the controls in <b>Demo mode</b> (More tab).
+  </div>
+
+  <!-- COLOUR -->
+  <section id="tab-color" class="active">
+    <div class="card">
+      <h3>Pick a colour</h3>
+      <div class="inline">
+        <input type="color" id="colorPick" value="#ff4060">
+        <span class="hint" style="margin:0" id="colorHex">#ff4060</span>
+      </div>
+      <div class="row"><label>Red</label><input type="range" id="rS" min="0" max="255"><span class="val" id="rV"></span></div>
+      <div class="row"><label>Green</label><input type="range" id="gS" min="0" max="255"><span class="val" id="gV"></span></div>
+      <div class="row"><label>Blue</label><input type="range" id="bS" min="0" max="255"><span class="val" id="bV"></span></div>
+    </div>
+    <div class="card">
+      <h3>Quick colours</h3>
+      <div class="grid" id="swatches"></div>
+    </div>
+    <div class="card">
+      <h3>White temperature</h3>
+      <div class="row"><label>Warm ↔ Cool</label><input type="range" id="kelvin" min="2000" max="9000" step="100" value="4000"><span class="val" id="kelvinV">4000K</span></div>
+      <p class="hint">RGB strips have no real white chip, so these whites are mixed from red, green and blue.</p>
+    </div>
+  </section>
+
+  <!-- EFFECTS -->
+  <section id="tab-effects">
+    <div class="card">
+      <h3>Custom effects <span class="hint">(run from your phone)</span></h3>
+      <div class="btns wide" id="effectBtns"></div>
+      <div class="row"><label>Speed</label><input type="range" id="speed" min="1" max="100" value="50"><span class="val" id="speedV">50</span></div>
+      <p class="hint">These use the colour steps below. "Sequence" uses each step's own fade and hold times, so you can build any pattern.</p>
+    </div>
+    <div class="card">
+      <h3>Colour steps</h3>
+      <div id="steps"></div>
+      <div class="btns" style="margin-top:8px">
+        <button class="small" id="addStep">+ Add step</button>
+        <select id="palettePreset">
+          <option value="">Load palette…</option>
+        </select>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Built-in controller modes</h3>
+      <select id="hwMode" style="width:100%"></select>
+      <div class="row"><label>Speed</label><input type="range" id="hwSpeed" min="1" max="100" value="50"><span class="val" id="hwSpeedV">50</span></div>
+      <div class="btns" style="margin-top:8px"><button id="hwStart" class="primary">Run on controller</button></div>
+      <p class="hint">These run on the strip's own chip, so they keep going even if you close the app. Mode names can vary between controllers.</p>
+    </div>
+  </section>
+
+  <!-- MUSIC -->
+  <section id="tab-music">
+    <div class="card">
+      <h3>Music sync (phone mic)</h3>
+      <select id="musicMode" style="width:100%">
+        <option value="pulse">Pulse: brightness follows the beat, colour steps on each hit</option>
+        <option value="spectrum">Spectrum: bass→red, mids→green, highs→blue</option>
+        <option value="hue">Hue drift: colour wheel spins with the energy</option>
+        <option value="flash">Beat flash: dark between hits, flash on each beat</option>
+        <option value="bassonly">Bass only: ignores vocals, reacts to the kick drum</option>
+      </select>
+      <div class="row"><label>Sensitivity</label><input type="range" id="musicSens" min="1" max="20" value="8"><span class="val" id="musicSensV">8</span></div>
+      <div class="row"><label>Min glow</label><input type="range" id="musicFloor" min="0" max="60" value="5"><span class="val" id="musicFloorV">5%</span></div>
+      <div id="meter"><div id="meterFill"></div></div>
+      <div class="btns" style="margin-top:10px"><button id="musicStart" class="primary">Start listening</button></div>
+      <p class="hint">Pulse and Beat flash use your colour steps from the Effects tab. Keep the phone near the speaker. Audio is analysed on the phone and never recorded or sent anywhere.</p>
+    </div>
+  </section>
+
+  <!-- MEDIA -->
+  <section id="tab-media">
+    <div class="card">
+      <h3>Image → light</h3>
+      <input type="file" id="imgFile" accept="image/*">
+      <canvas id="imgCanvas"></canvas>
+      <div id="timelineBar"></div>
+      <div class="row"><label>Play time</label><input type="range" id="imgDur" min="3" max="180" value="20"><span class="val" id="imgDurV">20s</span></div>
+      <div class="btns wide" style="margin-top:8px">
+        <button id="imgPalette">Extract palette → effect</button>
+        <button id="imgPlay" class="primary">Play image as timeline</button>
+      </div>
+      <p class="hint">Timeline mode sweeps across the picture from left to right and shows the colour of each slice in turn, like a sunset photo turned into a slow sunrise. The strip is one zone, so it can't draw the actual picture (see note below).</p>
+    </div>
+    <div class="card">
+      <h3>Text → light</h3>
+      <input type="text" id="txt" placeholder="Type a message" style="width:100%" value="HELLO">
+      <div class="row"><label>Style</label>
+        <select id="txtMode" style="flex:1">
+          <option value="morse">Morse code blink</option>
+          <option value="hue">Colour per letter (A=red … Z=violet)</option>
+        </select>
+      </div>
+      <div class="row"><label>Speed</label><input type="range" id="txtUnit" min="60" max="600" value="180"><span class="val" id="txtUnitV">180ms</span></div>
+      <div class="row"><label>Colour</label><input type="color" id="txtColor" value="#ffffff"><label style="min-width:auto"><input type="checkbox" id="txtLoop" checked> loop</label></div>
+      <div class="btns" style="margin-top:8px"><button id="txtPlay" class="primary">Play text</button></div>
+    </div>
+    <div class="card">
+      <h3>About real images and text</h3>
+      <p class="hint" style="margin-top:0">Cheap Bluetooth strips light every LED the same colour at the same time, so no app can draw a picture or scroll letters on them. For that you need an <b>addressable</b> strip or matrix (WS2812B / "pixel" / "symphony") driven by an ESP32. Those run around ₹500–1,500 and can run WLED, which this app could be extended to control.</p>
+    </div>
+  </section>
+
+  <!-- SCENES -->
+  <section id="tab-scenes">
+    <div class="card">
+      <h3>Save what's running now</h3>
+      <div class="inline"><input type="text" id="sceneName" placeholder="Scene name"><button id="sceneSave" class="primary">Save</button></div>
+      <p class="hint">A scene saves the brightness plus the last thing you started: a colour, an effect with its steps and speed, a controller mode, or a music style.</p>
+    </div>
+    <div class="card">
+      <h3>Your scenes</h3>
+      <div id="sceneList"></div>
+    </div>
+    <div class="card">
+      <h3>Backup / move to another phone</h3>
+      <textarea id="sceneJson" placeholder="Scenes and schedules as JSON"></textarea>
+      <div class="btns" style="margin-top:8px">
+        <button class="small" id="exportBtn">Export</button>
+        <button class="small" id="copyBtn">Copy</button>
+        <button class="small" id="importBtn">Import</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- SCHEDULE -->
+  <section id="tab-schedule">
+    <div class="card">
+      <h3>Add a schedule</h3>
+      <div class="inline">
+        <input type="time" id="schTime" value="07:00">
+        <select id="schAction" style="flex:1"></select>
+      </div>
+      <div class="row" id="schSunRow" style="display:none"><label>Fade over</label><input type="range" id="schSunMin" min="1" max="60" value="15"><span class="val" id="schSunMinV">15m</span></div>
+      <div class="days" id="schDays" style="margin-top:10px"></div>
+      <div class="btns" style="margin-top:10px"><button id="schAdd" class="primary">Add</button></div>
+    </div>
+    <div class="card">
+      <h3>Schedules</h3>
+      <div id="schList"></div>
+    </div>
+    <div class="card">
+      <h3>Sleep timer</h3>
+      <div class="inline">
+        <select id="sleepMin"><option value="5">5 min</option><option value="15">15 min</option><option value="30" selected>30 min</option><option value="60">60 min</option><option value="90">90 min</option></select>
+        <button id="sleepStart">Start</button>
+        <span class="hint" style="margin:0" id="sleepLeft"></span>
+      </div>
+      <p class="hint">Fades out over the final minute, then switches off.</p>
+    </div>
+    <div class="card">
+      <h3>Keep running</h3>
+      <label class="inline"><input type="checkbox" id="wakeLock"> Keep screen awake while this page is open</label>
+      <p class="hint">A web page can't run with the screen off. Schedules, the sleep timer and phone-run effects work while the page is open and connected, for example on an old phone on a charger. For automations that run with no phone, use Home Assistant or an ESP32 (ask me).</p>
+    </div>
+  </section>
+
+  <!-- MORE -->
+  <section id="tab-more">
+    <div class="card">
+      <h3>Connection</h3>
+      <div class="btns wide">
+        <button id="connectAll">Show all Bluetooth devices</button>
+        <button id="disconnectBtn">Disconnect</button>
+        <button id="demoBtn">Demo mode (no strip)</button>
+      </div>
+      <div class="row"><label>Protocol</label>
+        <select id="protoSel" style="flex:1">
+          <option value="auto">Auto-detect</option>
+        </select>
+      </div>
+      <div class="row"><label>Send gap</label><input type="range" id="gap" min="0" max="120" value="25"><span class="val" id="gapV">25ms</span></div>
+      <p class="hint">If the strip lags or skips colours during effects or music, raise the send gap. Close duoCo / Lotus Lamp / Happy Lighting first: the controller accepts only one connection at a time.</p>
+    </div>
+    <div class="card">
+      <h3>Raw command</h3>
+      <div class="inline"><input type="text" id="rawHex" placeholder="7e 00 05 03 ff 00 00 00 ef"><button id="rawSend">Send</button></div>
+      <p class="hint">Send any bytes in hex. Useful for testing a controller that behaves differently.</p>
+    </div>
+    <div class="card">
+      <h3>Log</h3>
+      <pre id="log"></pre>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* ============================== helpers ============================== */
+const $ = s => document.querySelector(s);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const hexToRgb = h => { h = h.replace('#',''); return [0,2,4].map(i => parseInt(h.substr(i,2),16)); };
+const rgbToHex = (r,g,b) => '#' + [r,g,b].map(v => clamp(Math.round(v),0,255).toString(16).padStart(2,'0')).join('');
+const mix = (a, b, t) => [0,1,2].map(i => a[i] + (b[i]-a[i]) * t);
+const ease = t => t < .5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2;
+function hsv(h, s, v){ h = ((h%360)+360)%360/60; const i = Math.floor(h), f = h-i, p=v*(1-s), q=v*(1-s*f), t=v*(1-s*(1-f));
+  const m = [[v,t,p],[q,v,p],[p,v,t],[p,q,v],[t,p,v],[v,p,q]][i % 6]; return m.map(x => x*255); }
+function kelvinToRgb(k){ // Tanner Helland approximation
+  const t = k/100; let r,g,b;
+  r = t <= 66 ? 255 : 329.698727446 * Math.pow(t-60, -0.1332047592);
+  g = t <= 66 ? 99.4708025861*Math.log(t) - 161.1195681661 : 288.1221695283 * Math.pow(t-60, -0.0755148492);
+  b = t >= 66 ? 255 : (t <= 19 ? 0 : 138.5177312231*Math.log(t-10) - 305.0447927307);
+  return [r,g,b].map(v => clamp(v,0,255)); }
+const store = {
+  get(k, d){ try { const v = localStorage.getItem('ss.'+k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v){ try { localStorage.setItem('ss.'+k, JSON.stringify(v)); } catch {} }
+};
+function log(msg){ const el = $('#log'); el.textContent = `${new Date().toLocaleTimeString()}  ${msg}\n` + el.textContent.slice(0, 6000); }
+let toastT; function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600); }
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ============================== protocols ============================== */
+/* Add a new controller family by adding an entry here. */
+const ELK_MODES = [
+  [0x87,'Jump: RGB'],[0x88,'Jump: 7 colours'],[0x89,'Gradient: RGB'],[0x8a,'Gradient: 7 colours'],
+  [0x8b,'Pulse: red'],[0x8c,'Pulse: green'],[0x8d,'Pulse: blue'],[0x8e,'Pulse: yellow'],[0x8f,'Pulse: cyan'],
+  [0x90,'Pulse: magenta'],[0x91,'Pulse: white'],[0x92,'Crossfade: red/green'],[0x93,'Crossfade: red/blue'],
+  [0x94,'Crossfade: green/blue'],[0x95,'Blink: 7 colours'],[0x96,'Blink: red'],[0x97,'Blink: green'],
+  [0x98,'Blink: blue'],[0x99,'Blink: yellow'],[0x9a,'Blink: cyan'],[0x9b,'Blink: magenta'],[0x9c,'Blink: white']
+];
+const TRI_MODES = [
+  [0x25,'Crossfade: 7 colours'],[0x26,'Pulse: red'],[0x27,'Pulse: green'],[0x28,'Pulse: blue'],[0x29,'Pulse: yellow'],
+  [0x2a,'Pulse: cyan'],[0x2b,'Pulse: purple'],[0x2c,'Pulse: white'],[0x2d,'Crossfade: red/green'],[0x2e,'Crossfade: red/blue'],
+  [0x2f,'Crossfade: green/blue'],[0x30,'Strobe: 7 colours'],[0x31,'Strobe: red'],[0x32,'Strobe: green'],[0x33,'Strobe: blue'],
+  [0x34,'Strobe: yellow'],[0x35,'Strobe: cyan'],[0x36,'Strobe: purple'],[0x37,'Strobe: white'],[0x38,'Jump: 7 colours']
+];
+const triCmds = {
+  power: on => on ? [0xcc,0x23,0x33] : [0xcc,0x24,0x33],
+  color: (r,g,b) => [0x56,r,g,b,0x00,0xf0,0xaa],
+  brightness: null,                      // no brightness command: scaled in software
+  modes: TRI_MODES,
+  mode: (m, s) => [[0xbb, m, Math.round(31 - (s/100)*30), 0x44]] // 1 = fastest, 31 = slowest
+};
+const MELKO_MODES = [
+  [0x00,'Auto play (cycles all)'],[0x01,'Magic back'],[0x02,'Effect 2'],[0x03,'Effect 3'],[0x04,'Effect 4'],[0x05,'Effect 5'],
+  [0x10,'Rainbow cycle'],[0x20,'Colour wave'],[0x30,'Breathing'],[0x40,'Strobe'],[0x80,'Jump: RGB'],[0x90,'Fade: RGB'],[0xcf,'Blue scroll']
+];
+const PROTOCOLS = [
+  { id:'melko', name:'MELK-Ox (Lotus Lamp X: MELK-OA10/OC10/OF10)', service:0xfff0, char:0xfff3,
+    match: n => /^MELK-O/i.test(n || ''),
+    login: [[0x7e,0x07,0x83],[0x7e,0x04,0x04]],           // controller ignores commands until it gets these
+    power: on => on ? [0x7e,0x04,0x04,0xf0,0x00,0x01,0xff,0x00,0xef] : [0x7e,0x04,0x04,0x00,0x00,0x00,0xff,0x00,0xef],
+    color: (r,g,b) => [0x7e,0x00,0x05,0x03,r,g,b,0x00,0xef],
+    brightness: p => [0x7e,0x04,0x01,clamp(p,0,100),0x01,0xff,0xff,0x00,0xef],
+    modes: MELKO_MODES,
+    mode: (m, s) => [[0x7e,0x05,0x03,m,0x06,0xff,0xff,0x00,0xef],[0x7e,0x04,0x02,clamp(s,0,100),0xff,0xff,0xff,0x00,0xef]] },
+  { id:'elk', name:'ELK-BLEDOM (duoCo / Lotus Lamp)', service:0xfff0, char:0xfff3,
+    power: on => on ? [0x7e,0x00,0x04,0xf0,0x00,0x01,0xff,0x00,0xef] : [0x7e,0x00,0x04,0x00,0x00,0x00,0xff,0x00,0xef],
+    color: (r,g,b) => [0x7e,0x00,0x05,0x03,r,g,b,0x00,0xef],
+    brightness: p => [0x7e,0x00,0x01,clamp(p,0,100),0x00,0x00,0x00,0x00,0xef],
+    modes: ELK_MODES,
+    mode: (m, s) => [[0x7e,0x00,0x03,m,0x03,0x00,0x00,0x00,0xef],[0x7e,0x00,0x02,clamp(s,0,100),0x00,0x00,0x00,0x00,0xef]] },
+  { id:'triones', name:'Triones (Happy Lighting)', service:0xffd5, char:0xffd9, ...triCmds },
+  { id:'ledblue', name:'LEDBlue (Magic Home BLE, older)', service:0xffe5, char:0xffe9, ...triCmds },
+];
+const ALL_SERVICES = PROTOCOLS.map(p => p.service);
+const NAME_PREFIXES = ['ELK','MELK','LEDBLE','ELK-BLE','Triones','LEDBlue','LEDnet','QHM','BJ_LED','Dream','LED'];
+
+/* ============================== device layer ============================== */
+const dev = { device:null, char:null, proto:null, demo:false, queue:[], pendingColor:null, busy:false, on:true, userClosed:false, retries:0 };
+const state = {
+  brightness: store.get('brightness', 100),
+  color: store.get('color', [255,64,96]),
+  steps: store.get('steps', null),
+  speed: store.get('speed', 50),
+  gap: store.get('gap', 25),
+  last: store.get('last', { kind:'color', hex:'#ff4060' })
+};
+if (!state.steps) state.steps = [{c:'#ff0040',hold:400,fade:900},{c:'#ff9a00',hold:400,fade:900},{c:'#7c3cff',hold:400,fade:900}];
+
+function setStatus(msg, cls=''){ const s = $('#status'); s.textContent = msg; s.className = cls; }
+function showConnected(){ if (dev.demo) setStatus('Demo mode: preview only', 'warn'); else if (dev.char && dev.proto) setStatus(`${dev.device.name || 'LED strip'} · ${dev.proto.name}`, 'ok'); }
+function swBright(){ return !dev.proto || dev.demo || !dev.proto.brightness; }
+
+async function rawWrite(bytes){
+  if (dev.demo || !dev.char) return;
+  const data = new Uint8Array(bytes), c = dev.char;
+  if (c.properties.writeWithoutResponse && c.writeValueWithoutResponse) await c.writeValueWithoutResponse(data);
+  else if (c.writeValueWithResponse) await c.writeValueWithResponse(data);
+  else await c.writeValue(data);
+}
+function enqueue(...cmds){ for (const c of cmds) dev.queue.push(c); pump(); }
+async function pump(){
+  if (dev.busy) return; dev.busy = true;
+  try {
+    while (dev.queue.length || dev.pendingColor){
+      let b; if (dev.queue.length) b = dev.queue.shift(); else { b = dev.pendingColor; dev.pendingColor = null; }
+      try { await rawWrite(b); }
+      catch (e){ log('Write error: ' + e.message); if (!dev.device || !dev.device.gatt.connected){ dev.queue = []; dev.pendingColor = null; break; } }
+      if (state.gap && !dev.demo) await sleep(state.gap);
+    }
+  } finally { dev.busy = false; }
+}
+/* Send a colour frame. scale (0..1) is an extra effect brightness. Latest frame wins if the link is busy. */
+function out(rgb, scale=1){
+  const b = state.brightness/100;
+  const vis = rgb.map(v => v*scale*b);
+  const hex = rgbToHex(...vis);
+  const g = $('#glow'); g.style.setProperty('--glow', hex);
+  if (!dev.proto) return;
+  const k = swBright() ? scale*b : scale;
+  const v = rgb.map(x => clamp(Math.round(x*k),0,255));
+  dev.pendingColor = dev.proto.color(...v); pump();
+}
+
+function orderedProtocols(name){
+  const o = $('#protoSel').value;
+  const first = o !== 'auto' ? PROTOCOLS.find(p => p.id === o) : PROTOCOLS.find(p => p.match && p.match(name));
+  const rest = PROTOCOLS.filter(p => p !== first && !(o === 'auto' && p.match && !p.match(name)));
+  return first ? [first, ...rest] : rest;
+}
+async function connect(all=false){
+  if (!navigator.bluetooth){ $('#btBanner').hidden = false; toast('Web Bluetooth not available here'); return; }
+  try {
+    const opts = all ? { acceptAllDevices:true, optionalServices:ALL_SERVICES }
+                     : { filters:[...NAME_PREFIXES.map(p => ({namePrefix:p})), ...ALL_SERVICES.map(s => ({services:[s]}))], optionalServices:ALL_SERVICES };
+    const d = await navigator.bluetooth.requestDevice(opts);
+    await attach(d);
+  } catch (e){
+    if (e.name === 'NotFoundError') { setStatus('No device chosen'); return; }
+    log('Connect failed: ' + e.message); setStatus('Connect failed: ' + e.message, 'bad');
+  }
+}
+async function attach(d){
+  dev.demo = false; dev.userClosed = false;
+  if (dev.device !== d){ if (dev.device) dev.device.removeEventListener('gattserverdisconnected', onDisconnect); d.addEventListener('gattserverdisconnected', onDisconnect); }
+  dev.device = d; dev.char = null; dev.proto = null;
+  setStatus('Connecting to ' + (d.name || 'device') + '…', 'warn');
+  const server = await d.gatt.connect();
+  let ch = null, proto = null;
+  for (const p of orderedProtocols(d.name)){
+    try { const svc = await server.getPrimaryService(p.service); ch = await svc.getCharacteristic(p.char); proto = p; break; } catch {}
+  }
+  if (ch && proto.login){ // log in before anything else is allowed to write
+    setStatus('Logging in to ' + (d.name || 'controller') + '…', 'warn');
+    for (const cmd of proto.login){ const b = new Uint8Array(cmd); if (ch.writeValueWithoutResponse) await ch.writeValueWithoutResponse(b); else await ch.writeValue(b); await sleep(1000); }
+  }
+  dev.char = ch; dev.proto = proto;
+  if (!dev.char){ d.gatt.disconnect(); throw new Error('no supported LED service on this device. Try "Show all Bluetooth devices" and pick another, or check the Log.'); }
+  dev.retries = 0; store.set('lastName', d.name);
+  setStatus(`${d.name || 'LED strip'} · ${dev.proto.name}`, 'ok');
+  log(`Connected to ${d.name} using ${dev.proto.name}`);
+  $('#connectBtn').textContent = 'Reconnect';
+  fillHwModes();
+  if (dev.proto.brightness) enqueue(dev.proto.brightness(state.brightness));
+}
+async function onDisconnect(){
+  dev.char = null;
+  if (dev.userClosed){ setStatus('Disconnected'); return; }
+  const delays = [1000, 2000, 4000, 8000, 15000];
+  while (dev.retries < delays.length && !dev.userClosed){
+    setStatus(`Connection lost, retrying (${dev.retries+1}/${delays.length})…`, 'warn');
+    await sleep(delays[dev.retries++]);
+    try { await attach(dev.device); toast('Reconnected'); return; } catch (e){ log('Reconnect failed: ' + e.message); }
+  }
+  setStatus('Disconnected: tap Reconnect', 'bad');
+}
+function disconnect(){ dev.userClosed = true; stopRunner(); if (dev.device && dev.device.gatt.connected) dev.device.gatt.disconnect(); dev.char = null; dev.proto = null; dev.demo = false; setStatus('Disconnected'); }
+async function tryAutoReconnect(){ // works where Chrome exposes getDevices() (no picker needed after first pairing)
+  if (!navigator.bluetooth || !navigator.bluetooth.getDevices) return;
+  try {
+    const devices = await navigator.bluetooth.getDevices();
+    const last = store.get('lastName', null);
+    const d = devices.find(x => x.name === last) || devices[0];
+    if (!d) return;
+    setStatus('Looking for ' + (d.name || 'last strip') + '…', 'warn');
+    const ac = new AbortController();
+    const found = new Promise(res => d.addEventListener('advertisementreceived', () => { ac.abort(); res(true); }, { once:true }));
+    if (d.watchAdvertisements) { await d.watchAdvertisements({ signal: ac.signal }); await Promise.race([found, sleep(6000)]); }
+    await attach(d);
+  } catch (e){ log('Auto-reconnect skipped: ' + e.message); setStatus('Not connected'); }
+}
+function ensureOn(){ if (!dev.on) setPower(true, false); }
+function setPower(on, restore=true){
+  dev.on = on; $('#powerBtn').classList.toggle('on', on);
+  if (!on){ stopRunner(); $('#glow').style.setProperty('--glow', '#000'); }
+  if (dev.proto){ dev.pendingColor = null; enqueue(dev.proto.power(on)); }
+  if (on && restore && state.last) setTimeout(() => applyAction(state.last, false), 150);
+}
+
+/* ============================== runner (one active thing at a time) ============================== */
+let runner = null;
+function startRunner(name, stopFn){ stopRunner(); showConnected(); runner = { name, stop: stopFn }; $('#runnerName').textContent = name; $('#runnerBox').hidden = false; }
+function stopRunner(){ if (runner){ const r = runner; runner = null; try { r.stop(); } catch {} } $('#runnerBox').hidden = true; $('#musicStart').textContent = 'Start listening'; }
+function startLoop(name, fps, frame){
+  const t0 = performance.now();
+  const id = setInterval(() => frame((performance.now()-t0)/1000), 1000/fps);
+  startRunner(name, () => clearInterval(id));
+}
+function remember(action){ state.last = action; store.set('last', action); }
+
+/* ============================== colour ============================== */
+function setColor(rgb, save=true){
+  stopRunner(); showConnected(); state.color = rgb.map(Math.round); store.set('color', state.color);
+  syncColorUI(); ensureOn();
+  out(state.color);
+  if (save) remember({ kind:'color', hex: rgbToHex(...state.color) });
+}
+function syncColorUI(){
+  const [r,g,b] = state.color, hex = rgbToHex(r,g,b);
+  $('#colorPick').value = hex; $('#colorHex').textContent = hex;
+  $('#rS').value = r; $('#gS').value = g; $('#bS').value = b;
+  $('#rV').textContent = r; $('#gV').textContent = g; $('#bV').textContent = b;
+}
+const SWATCHES = ['#ff0000','#ff4000','#ff8000','#ffc000','#ffff00','#80ff00','#00ff00','#00ff80','#00ffff','#0080ff','#0000ff','#8000ff','#ff00ff','#ff0080','#ffffff','#ffb46b'];
+
+/* ============================== effects ============================== */
+const stepColors = () => state.steps.map(s => hexToRgb(s.c));
+const stepDur = () => 4 * Math.pow(0.04, state.speed/100); // 4s (slow) … 0.16s (fast)
+const EFFECTS = {
+  fade:    { name:'Fade', make(){ return t => { const c = stepColors(), n = c.length, d = stepDur()*1.5, p = t/d; const i = Math.floor(p)%n; return [mix(c[i], c[(i+1)%n], ease(p%1)), 1]; }; } },
+  jump:    { name:'Jump', make(){ return t => { const c = stepColors(); return [c[Math.floor(t/stepDur())%c.length], 1]; }; } },
+  breathe: { name:'Breathe', make(){ return t => { const c = stepColors(), d = stepDur()*3; const i = Math.floor(t/d)%c.length; return [c[i], 0.03 + 0.97*(0.5-0.5*Math.cos(2*Math.PI*t/d))]; }; } },
+  strobe:  { name:'Strobe', make(){ return t => { const c = stepColors(), d = Math.max(stepDur()*0.5, 0.08); const k = Math.floor(t/d); return [c[k%c.length], (t%d) < d*0.35 ? 1 : 0]; }; } },
+  rainbow: { name:'Rainbow', make(){ return t => [hsv(t*360/(stepDur()*8), 1, 1), 1]; } },
+  candle:  { name:'Candle', make(){ let v = .8, target = .8, next = 0; return t => {
+              if (t > next){ target = Math.random() < .08 ? .25 + Math.random()*.25 : .6 + Math.random()*.4; next = t + .04 + Math.random()*.15*(stepDur()); }
+              v += (target - v) * .35; const base = stepColors()[0]; return [mix(base, [255,90,10], .5), v]; }; } },
+  police:  { name:'Police', make(){ return t => { const d = Math.max(stepDur(), .3), p = (t%d)/d; const red = p < .5, q = (p%.5)/.5;
+              const on = (q < .2) || (q > .3 && q < .5); return [red ? [255,0,0] : [0,40,255], on ? 1 : 0]; }; } },
+  heart:   { name:'Heartbeat', make(){ return t => { const d = Math.max(stepDur()*3, .5), p = (t%d)/d;
+              const bump = x => Math.exp(-Math.pow(x/0.035, 2)); return [stepColors()[0], .05 + .95*Math.max(bump(p-.08), .7*bump(p-.26))]; }; } },
+  sequence:{ name:'Sequence', make(){ return t => {
+              const st = state.steps, total = st.reduce((a,s) => a + s.fade + s.hold, 0) / 1000 || 1;
+              let x = t % total;
+              for (let i = 0; i < st.length; i++){
+                const f = st[i].fade/1000, h = st[i].hold/1000, prev = hexToRgb(st[(i-1+st.length)%st.length].c), cur = hexToRgb(st[i].c);
+                if (x < f) return [mix(prev, cur, ease(x/f)), 1];
+                x -= f; if (x < h) return [cur, 1]; x -= h;
+              }
+              return [hexToRgb(st[0].c), 1]; }; } }
+};
+function runEffect(id, save=true){
+  const e = EFFECTS[id]; if (!e) return;
+  ensureOn();
+  const frame = e.make();
+  startLoop('Effect: ' + e.name, 25, t => { const [c, s] = frame(t); out(c, s); });
+  if (save) remember({ kind:'effect', id, steps: JSON.parse(JSON.stringify(state.steps)), speed: state.speed });
+}
+const PALETTES = {
+  'Sunset':  ['#ff2a00','#ff7a00','#ff004c','#7a00ff'],
+  'Ocean':   ['#0033ff','#00b3ff','#00ffd0','#0066aa'],
+  'Forest':  ['#00ff40','#2a8000','#b3ff00','#006633'],
+  'Party':   ['#ff0000','#00ff00','#0000ff','#ffff00','#ff00ff','#00ffff'],
+  'Neon':    ['#ff00aa','#00ffee','#aa00ff'],
+  'Diwali':  ['#ff6a00','#ffc400','#ff0040','#ff9a00'],
+  'Holi':    ['#ff0080','#00e5ff','#ffe600','#7cff00','#a000ff'],
+  'Tricolour':['#ff9933','#ffffff','#138808'],
+  'Ice':     ['#ffffff','#9fd8ff','#3d7bff'],
+};
+function renderSteps(){
+  const box = $('#steps'); box.innerHTML = '';
+  state.steps.forEach((s, i) => {
+    const row = document.createElement('div'); row.className = 'step';
+    row.innerHTML = `<input type="color" value="${s.c}">
+      <span class="lbl">fade</span><input type="number" min="0" step="50" value="${s.fade}">
+      <span class="lbl">hold</span><input type="number" min="0" step="50" value="${s.hold}">
+      <button class="small danger" title="Remove">✕</button>`;
+    const [c, f, h, del] = row.querySelectorAll('input,button');
+    c.oninput = () => { s.c = c.value; saveSteps(); };
+    f.onchange = () => { s.fade = Math.max(0, +f.value || 0); saveSteps(); };
+    h.onchange = () => { s.hold = Math.max(0, +h.value || 0); saveSteps(); };
+    del.onclick = () => { if (state.steps.length > 1){ state.steps.splice(i, 1); saveSteps(); renderSteps(); } };
+    box.appendChild(row);
+  });
+}
+function saveSteps(){ store.set('steps', state.steps); if (state.last && state.last.kind === 'effect') state.last.steps = JSON.parse(JSON.stringify(state.steps)), store.set('last', state.last); }
+function setPalette(hexes){ state.steps = hexes.map(c => ({ c, fade:900, hold:400 })); saveSteps(); renderSteps(); }
+
+/* hardware modes */
+function fillHwModes(){
+  const p = dev.proto || PROTOCOLS[0];
+  $('#hwMode').innerHTML = p.modes.map(([v, n]) => `<option value="${v}">${esc(n)}</option>`).join('');
+}
+function runHw(code, speed, save=true){
+  stopRunner(); ensureOn();
+  if (!dev.proto){ toast('Connect a strip first'); return; }
+  dev.pendingColor = null;
+  enqueue(...dev.proto.mode(code, speed));
+  const name = (dev.proto.modes.find(m => m[0] === code) || [0,'mode'])[1];
+  setStatus(`${dev.device ? dev.device.name : 'Demo'} · controller mode: ${name}`, 'ok');
+  $('#glow').style.setProperty('--glow', '#334');
+  if (save) remember({ kind:'hw', code, speed });
+}
+
+/* ============================== music ============================== */
+async function startMusic(save=true){
+  if (runner && runner.name.startsWith('Music')){ stopRunner(); return; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ toast('Microphone not available (needs https)'); return; }
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:false, noiseSuppression:false, autoGainControl:false } }); }
+  catch (e){ toast('Microphone permission denied'); log('Mic: ' + e.message); return; }
+  ensureOn();
+  const AC = window.AudioContext || window.webkitAudioContext, ac = new AC();
+  const src = ac.createMediaStreamSource(stream), an = ac.createAnalyser();
+  an.fftSize = 1024; an.smoothingTimeConstant = 0.55; src.connect(an);
+  const bins = new Uint8Array(an.frequencyBinCount), hz = ac.sampleRate / an.fftSize;
+  const band = (lo, hi) => { let s = 0, c = 0; for (let i = Math.max(1, Math.floor(lo/hz)); i <= Math.min(bins.length-1, Math.ceil(hi/hz)); i++){ s += bins[i]; c++; } return c ? s/c/255 : 0; };
+  const mode = $('#musicMode').value;
+  let avg = 0.05, level = 0, idx = 0, lastBeat = 0, hue = 0, flash = 0;
+  const meter = $('#meterFill');
+  startLoop('Music: ' + $('#musicMode').selectedOptions[0].text.split(':')[0], 30, t => {
+    an.getByteFrequencyData(bins);
+    const gain = (+$('#musicSens').value) / 4, floor = (+$('#musicFloor').value) / 100;
+    const bass = band(30, 160), mid = band(160, 2000), tre = band(2000, 9000);
+    const e = (mode === 'bassonly' || mode === 'flash') ? bass : bass*0.55 + mid*0.3 + tre*0.15;
+    avg = avg*0.96 + e*0.04;
+    const beat = e > avg*1.3 + 0.03 && t - lastBeat > 0.16;
+    if (beat){ lastBeat = t; idx++; flash = 1; }
+    const norm = clamp((e - avg*0.5) * gain * 2, 0, 1);
+    level = norm > level ? norm : level*0.82 + norm*0.18;
+    meter.style.width = (level*100).toFixed(0) + '%';
+    const cols = stepColors();
+    let c, s;
+    if (mode === 'pulse' || mode === 'bassonly'){ c = cols[idx % cols.length]; s = floor + (1-floor)*level; }
+    else if (mode === 'spectrum'){ const v = [bass, mid*1.4, tre*2.2].map(x => clamp(x*gain, 0, 1)); const m = Math.max(...v, 0.001); c = v.map(x => x/m*255); s = floor + (1-floor)*level; }
+    else if (mode === 'hue'){ hue += 0.6 + level*10 + (beat ? 40 : 0); c = hsv(hue, 1, 1); s = floor + (1-floor)*level; }
+    else { c = cols[idx % cols.length]; s = floor + (1-floor)*flash; flash *= 0.78; }
+    out(c, s);
+  });
+  const r = runner, prevStop = r.stop;
+  r.stop = () => { prevStop(); stream.getTracks().forEach(tr => tr.stop()); ac.close(); meter.style.width = '0'; };
+  $('#musicStart').textContent = 'Stop listening';
+  if (save) remember({ kind:'music', mode, sens:+$('#musicSens').value, floor:+$('#musicFloor').value });
+}
+
+/* ============================== image ============================== */
+const imgCanvas = $('#imgCanvas'); let imgReady = false;
+$('#imgFile').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const url = URL.createObjectURL(f), img = new Image();
+  img.onload = () => {
+    const w = 240, h = Math.max(1, Math.round(img.height * w / img.width));
+    imgCanvas.width = w; imgCanvas.height = h;
+    imgCanvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    imgCanvas.style.display = 'block'; imgReady = true; URL.revokeObjectURL(url);
+    const cols = imageColumns(); $('#timelineBar').style.display = 'block';
+    $('#timelineBar').style.background = `linear-gradient(90deg, ${cols.map(c => rgbToHex(...c)).join(',')})`;
+  };
+  img.src = url;
+};
+function imagePixels(){ return imgCanvas.getContext('2d').getImageData(0, 0, imgCanvas.width, imgCanvas.height).data; }
+function imageColumns(n = 60){
+  const d = imagePixels(), W = imgCanvas.width, H = imgCanvas.height, cols = [];
+  for (let k = 0; k < n; k++){
+    const x0 = Math.floor(k*W/n), x1 = Math.max(x0+1, Math.floor((k+1)*W/n)); let r=0,g=0,b=0,c=0;
+    for (let y = 0; y < H; y += 2) for (let x = x0; x < x1; x++){ const i = (y*W + x)*4; r += d[i]; g += d[i+1]; b += d[i+2]; c++; }
+    cols.push(boost([r/c, g/c, b/c]));
+  }
+  return cols;
+}
+function boost([r,g,b]){ // averaged colours look muddy on LEDs: normalise level and push saturation
+  const m = Math.max(r,g,b,1); let c = [r,g,b].map(v => v/m*255);
+  const lo = Math.min(...c); if (lo < 230) c = c.map(v => (v - lo*0.6) / (255 - lo*0.6) * 255);
+  return c.map(v => clamp(v,0,255));
+}
+function kmeansPalette(k = 6){
+  const d = imagePixels(), pts = [];
+  for (let i = 0; i < d.length; i += 4*7){ const p = [d[i], d[i+1], d[i+2]]; if (Math.max(...p) > 30) pts.push(p); }
+  if (!pts.length) return [];
+  let cent = Array.from({length:k}, (_, j) => pts[Math.floor(j * pts.length / k)].slice());
+  for (let it = 0; it < 10; it++){
+    const sum = cent.map(() => [0,0,0,0]);
+    for (const p of pts){ let bi = 0, bd = 1e9; cent.forEach((c, j) => { const dd = (p[0]-c[0])**2 + (p[1]-c[1])**2 + (p[2]-c[2])**2; if (dd < bd){ bd = dd; bi = j; } }); const s = sum[bi]; s[0]+=p[0]; s[1]+=p[1]; s[2]+=p[2]; s[3]++; }
+    cent = cent.map((c, j) => sum[j][3] ? sum[j].slice(0,3).map(v => v/sum[j][3]) : c);
+  }
+  return cent.map(boost).filter((c, i, a) => a.findIndex(o => Math.abs(o[0]-c[0]) + Math.abs(o[1]-c[1]) + Math.abs(o[2]-c[2]) < 40) === i);
+}
+$('#imgPalette').onclick = () => {
+  if (!imgReady){ toast('Choose an image first'); return; }
+  const pal = kmeansPalette(6); if (!pal.length){ toast('Image is too dark'); return; }
+  setPalette(pal.map(c => rgbToHex(...c))); runEffect('fade'); toast(`Palette of ${pal.length} colours loaded into Effects`);
+};
+function playImage(save=true){
+  if (!imgReady){ toast('Choose an image first'); return; }
+  const cols = imageColumns(60), dur = +$('#imgDur').value, n = cols.length;
+  ensureOn();
+  startLoop('Image timeline', 25, t => { const p = (t % dur) / dur * n, i = Math.floor(p) % n; out(mix(cols[i], cols[(i+1)%n], p % 1)); });
+  if (save) remember({ kind:'image', cols, dur });
+}
+$('#imgPlay').onclick = () => playImage();
+
+/* ============================== text ============================== */
+const MORSE = { A:'.-',B:'-...',C:'-.-.',D:'-..',E:'.',F:'..-.',G:'--.',H:'....',I:'..',J:'.---',K:'-.-',L:'.-..',M:'--',N:'-.',O:'---',P:'.--.',Q:'--.-',R:'.-.',S:'...',T:'-',U:'..-',V:'...-',W:'.--',X:'-..-',Y:'-.--',Z:'--..',
+  0:'-----',1:'.----',2:'..---',3:'...--',4:'....-',5:'.....',6:'-....',7:'--...',8:'---..',9:'----.','.':'.-.-.-',',':'--..--','?':'..--..','!':'-.-.--' };
+function textTimeline(txt, mode, color){
+  const seq = []; // [rgb|null, units]
+  const words = txt.toUpperCase().trim().split(/\s+/).filter(Boolean);
+  words.forEach((w, wi) => {
+    [...w].forEach((ch, ci) => {
+      if (mode === 'morse'){
+        const code = MORSE[ch]; if (!code) return;
+        [...code].forEach((s, si) => { seq.push([color, s === '.' ? 1 : 3]); if (si < code.length-1) seq.push([null, 1]); });
+      } else {
+        const a = ch.charCodeAt(0);
+        const c = a >= 65 && a <= 90 ? hsv((a-65)/26*300, 1, 1) : (a >= 48 && a <= 57 ? hsv(0, 0, 1) : null);
+        if (!c) return; seq.push([c, 3]);
+      }
+      if (ci < w.length-1) seq.push([null, mode === 'morse' ? 3 : 1]);
+    });
+    if (wi < words.length-1) seq.push([null, 7]);
+  });
+  seq.push([null, 10]);
+  return seq;
+}
+function playText(save=true){
+  const txt = $('#txt').value, mode = $('#txtMode').value, unit = +$('#txtUnit').value / 1000, loop = $('#txtLoop').checked;
+  const seq = textTimeline(txt, mode, hexToRgb($('#txtColor').value));
+  if (seq.length < 2){ toast('Type some letters or numbers'); return; }
+  const total = seq.reduce((a, s) => a + s[1], 0) * unit;
+  ensureOn();
+  startLoop('Text: ' + txt.slice(0, 18), 50, t => {
+    if (!loop && t >= total){ out([0,0,0], 0); stopRunner(); return; }
+    let x = (t % total) / unit;
+    for (const [c, u] of seq){ if (x < u){ out(c || [0,0,0], c ? 1 : 0); return; } x -= u; }
+  });
+  if (save) remember({ kind:'text', txt, mode, unit:+$('#txtUnit').value, loop, color:$('#txtColor').value });
+}
+$('#txtPlay').onclick = () => playText();
+
+/* ============================== scenes ============================== */
+const BUILTIN_SCENES = [
+  { name:'Reading', brightness:100, action:{ kind:'color', hex:'#ffc78a' } },
+  { name:'Focus (cool white)', brightness:100, action:{ kind:'color', hex:'#e6eeff' } },
+  { name:'Movie night', brightness:15, action:{ kind:'color', hex:'#2040ff' } },
+  { name:'Relax sunset', brightness:60, action:{ kind:'effect', id:'fade', speed:12, steps:PALETTES.Sunset.map(c => ({c, fade:900, hold:400})) } },
+  { name:'Party', brightness:100, action:{ kind:'effect', id:'jump', speed:75, steps:PALETTES.Party.map(c => ({c, fade:0, hold:300})) } },
+  { name:'Diya / candle', brightness:70, action:{ kind:'effect', id:'candle', speed:40, steps:[{c:'#ff8a20', fade:0, hold:0}] } },
+];
+let scenes = store.get('scenes', []);
+function applyAction(a, save=true){
+  if (!a) return;
+  if (a.kind === 'color') setColor(hexToRgb(a.hex), save);
+  else if (a.kind === 'effect'){ if (a.steps){ state.steps = JSON.parse(JSON.stringify(a.steps)); saveSteps(); renderSteps(); } if (a.speed){ state.speed = a.speed; $('#speed').value = a.speed; $('#speedV').textContent = a.speed; store.set('speed', a.speed); } runEffect(a.id, save); }
+  else if (a.kind === 'hw') runHw(a.code, a.speed, save);
+  else if (a.kind === 'music'){ $('#musicMode').value = a.mode; $('#musicSens').value = a.sens; $('#musicFloor').value = a.floor; updateLabels(); startMusic(save); }
+  else if (a.kind === 'image'){ const cols = a.cols, dur = a.dur, n = cols.length; startLoop('Image timeline', 25, t => { const p = (t % dur)/dur*n, i = Math.floor(p)%n; out(mix(cols[i], cols[(i+1)%n], p%1)); }); if (save) remember(a); }
+  else if (a.kind === 'text'){ $('#txt').value = a.txt; $('#txtMode').value = a.mode; $('#txtUnit').value = a.unit; $('#txtLoop').checked = a.loop; $('#txtColor').value = a.color; updateLabels(); playText(save); }
+}
+function applyScene(s){ setBrightness(s.brightness ?? state.brightness); ensureOn(); applyAction(s.action); toast('Scene: ' + s.name); }
+function sceneChips(a){
+  if (a.kind === 'color') return `<span class="chip" style="background:${a.hex}"></span>`;
+  if (a.kind === 'effect' && a.steps) return a.steps.slice(0, 6).map(s => `<span class="chip" style="background:${s.c}"></span>`).join('') + ` ${esc(EFFECTS[a.id] ? EFFECTS[a.id].name : a.id)}`;
+  return { hw:'Controller mode', music:'Music sync', image:'Image timeline', text:'Text' }[a.kind] || a.kind;
+}
+function renderScenes(){
+  const all = [...scenes.map((s, i) => ({ ...s, idx:i })), ...BUILTIN_SCENES.map(s => ({ ...s, builtin:true }))];
+  $('#sceneList').innerHTML = all.map((s, i) => `<div class="list-item">
+      <div class="grow"><div>${esc(s.name)}${s.builtin ? ' <span class="sub">· built-in</span>' : ''}</div><div class="sub">${sceneChips(s.action)} · ${s.brightness}%</div></div>
+      <button class="small primary" data-apply="${i}">Apply</button>
+      ${s.builtin ? '' : `<button class="small danger" data-del="${s.idx}">✕</button>`}
+    </div>`).join('');
+  $('#sceneList').querySelectorAll('[data-apply]').forEach(b => b.onclick = () => applyScene(all[+b.dataset.apply]));
+  $('#sceneList').querySelectorAll('[data-del]').forEach(b => b.onclick = () => { scenes.splice(+b.dataset.del, 1); store.set('scenes', scenes); renderScenes(); renderSchActions(); });
+  renderSchActions();
+}
+$('#sceneSave').onclick = () => {
+  const name = $('#sceneName').value.trim(); if (!name){ toast('Give the scene a name'); return; }
+  const s = { name, brightness: state.brightness, action: JSON.parse(JSON.stringify(state.last)) };
+  const i = scenes.findIndex(x => x.name === name); if (i >= 0) scenes[i] = s; else scenes.unshift(s);
+  store.set('scenes', scenes); $('#sceneName').value = ''; renderScenes(); toast('Saved "' + name + '"');
+};
+$('#exportBtn').onclick = () => { $('#sceneJson').value = JSON.stringify({ scenes, schedules, steps: state.steps }, null, 1); };
+$('#copyBtn').onclick = async () => { if (!$('#sceneJson').value) $('#exportBtn').onclick(); try { await navigator.clipboard.writeText($('#sceneJson').value); toast('Copied'); } catch { $('#sceneJson').select(); toast('Select all and copy'); } };
+$('#importBtn').onclick = () => {
+  try { const d = JSON.parse($('#sceneJson').value);
+    if (Array.isArray(d.scenes)) { scenes = d.scenes; store.set('scenes', scenes); }
+    if (Array.isArray(d.schedules)) { schedules = d.schedules; store.set('schedules', schedules); }
+    if (Array.isArray(d.steps) && d.steps.length) { state.steps = d.steps; saveSteps(); renderSteps(); }
+    renderScenes(); renderSchedules(); toast('Imported');
+  } catch (e){ toast('That JSON could not be read'); }
+};
+
+/* ============================== schedules ============================== */
+let schedules = store.get('schedules', []);
+const DAYS = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+$('#schDays').innerHTML = DAYS.map((d, i) => `<label><input type="checkbox" value="${i}" checked><span>${d}</span></label>`).join('');
+function allScenes(){ return [...scenes, ...BUILTIN_SCENES]; }
+function renderSchActions(){
+  const cur = $('#schAction').value;
+  $('#schAction').innerHTML = `<option value="on">Turn on (last state)</option><option value="off">Turn off</option><option value="sunrise">Sunrise wake-up (fade in)</option><option value="sunset">Wind down (fade out, then off)</option>`
+    + allScenes().map(s => `<option value="scene:${esc(s.name)}">Scene: ${esc(s.name)}</option>`).join('');
+  if (cur) $('#schAction').value = cur;
+  $('#schSunRow').style.display = /sunrise|sunset/.test($('#schAction').value) ? 'flex' : 'none';
+}
+function actionLabel(a){ return a === 'on' ? 'Turn on' : a === 'off' ? 'Turn off' : a === 'sunrise' ? 'Sunrise' : a === 'sunset' ? 'Wind down' : a.replace('scene:', 'Scene: '); }
+function renderSchedules(){
+  $('#schList').innerHTML = schedules.length ? schedules.map((s, i) => `<div class="list-item">
+      <input type="checkbox" data-en="${i}" ${s.enabled ? 'checked' : ''}>
+      <div class="grow"><div>${esc(s.time)} · ${esc(actionLabel(s.action))}${s.minutes ? ` (${s.minutes}m)` : ''}</div><div class="sub">${s.days.length === 7 ? 'Every day' : s.days.map(d => DAYS[d]).join(' ')}</div></div>
+      <button class="small danger" data-del="${i}">✕</button></div>`).join('') : '<p class="hint" style="margin:0">No schedules yet.</p>';
+  $('#schList').querySelectorAll('[data-en]').forEach(c => c.onchange = () => { schedules[+c.dataset.en].enabled = c.checked; store.set('schedules', schedules); });
+  $('#schList').querySelectorAll('[data-del]').forEach(b => b.onclick = () => { schedules.splice(+b.dataset.del, 1); store.set('schedules', schedules); renderSchedules(); });
+}
+$('#schAction').onchange = renderSchActions;
+$('#schAdd').onclick = () => {
+  const days = [...$('#schDays').querySelectorAll('input:checked')].map(i => +i.value);
+  if (!days.length){ toast('Pick at least one day'); return; }
+  const a = $('#schAction').value;
+  schedules.push({ id: Date.now(), time: $('#schTime').value, days, action: a, minutes: /sunrise|sunset/.test(a) ? +$('#schSunMin').value : 0, enabled: true });
+  schedules.sort((x, y) => x.time.localeCompare(y.time));
+  store.set('schedules', schedules); renderSchedules(); toast('Schedule added');
+};
+function fadeTo(fromB, toB, minutes, color, done){
+  const total = minutes*60;
+  ensureOn();
+  startLoop(`Fade ${toB > fromB ? 'in' : 'out'} (${minutes}m)`, 4, t => {
+    const p = clamp(t/total, 0, 1), b = fromB + (toB - fromB) * p;
+    const c = color || mix([255,60,0], [255,200,140], toB > fromB ? p : 1-p);
+    out(c, b/100 / (state.brightness/100 || 1));
+    if (p >= 1){ stopRunner(); if (done) done(); }
+  });
+}
+function fire(s){
+  log('Schedule fired: ' + s.time + ' ' + actionLabel(s.action));
+  if (s.action === 'on') setPower(true);
+  else if (s.action === 'off') setPower(false);
+  else if (s.action === 'sunrise'){ setBrightness(100); fadeTo(1, 100, s.minutes || 15, null); }
+  else if (s.action === 'sunset'){ fadeTo(state.brightness, 0, s.minutes || 15, state.last.kind === 'color' ? hexToRgb(state.last.hex) : null, () => setPower(false)); }
+  else if (s.action.startsWith('scene:')){ const sc = allScenes().find(x => x.name === s.action.slice(6)); if (sc) applyScene(sc); }
+}
+const fired = {};
+setInterval(() => {
+  const now = new Date(), hm = now.toTimeString().slice(0,5), key = now.toDateString() + hm;
+  for (const s of schedules){ if (s.enabled && s.time === hm && s.days.includes(now.getDay()) && fired[s.id] !== key){ fired[s.id] = key; fire(s); } }
+}, 5000);
+
+/* sleep timer */
+let sleepT = null, sleepEnd = 0;
+$('#sleepStart').onclick = () => {
+  if (sleepT){ clearInterval(sleepT); sleepT = null; $('#sleepLeft').textContent = ''; $('#sleepStart').textContent = 'Start'; return; }
+  sleepEnd = Date.now() + (+$('#sleepMin').value)*60000; $('#sleepStart').textContent = 'Cancel';
+  let fading = false;
+  sleepT = setInterval(() => {
+    const left = sleepEnd - Date.now();
+    $('#sleepLeft').textContent = left > 0 ? `${Math.floor(left/60000)}:${String(Math.floor(left/1000)%60).padStart(2,'0')} left` : '';
+    if (left <= 60000 && !fading){ fading = true; fadeTo(state.brightness, 0, 1, state.last.kind === 'color' ? hexToRgb(state.last.hex) : null, () => setPower(false)); }
+    if (left <= 0){ clearInterval(sleepT); sleepT = null; $('#sleepStart').textContent = 'Start'; }
+  }, 1000);
+};
+/* wake lock */
+let wakeSentinel = null;
+async function setWake(on){
+  try {
+    if (on && 'wakeLock' in navigator){ wakeSentinel = await navigator.wakeLock.request('screen'); }
+    else if (wakeSentinel){ await wakeSentinel.release(); wakeSentinel = null; }
+  } catch (e){ log('Wake lock: ' + e.message); }
+}
+$('#wakeLock').onchange = e => { store.set('wake', e.target.checked); setWake(e.target.checked); };
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && $('#wakeLock').checked) setWake(true); });
+
+/* ============================== UI wiring ============================== */
+function setBrightness(v){
+  state.brightness = clamp(Math.round(v), 1, 100); store.set('brightness', state.brightness);
+  $('#bright').value = state.brightness; $('#brightVal').textContent = state.brightness;
+  if (dev.proto && dev.proto.brightness && !dev.demo) enqueue(dev.proto.brightness(state.brightness));
+  if (!runner && state.last && state.last.kind === 'color') out(state.color);
+}
+function updateLabels(){
+  $('#speedV').textContent = $('#speed').value; $('#hwSpeedV').textContent = $('#hwSpeed').value;
+  $('#musicSensV').textContent = $('#musicSens').value; $('#musicFloorV').textContent = $('#musicFloor').value + '%';
+  $('#imgDurV').textContent = $('#imgDur').value + 's'; $('#txtUnitV').textContent = $('#txtUnit').value + 'ms';
+  $('#gapV').textContent = $('#gap').value + 'ms'; $('#kelvinV').textContent = $('#kelvin').value + 'K';
+  $('#schSunMinV').textContent = $('#schSunMin').value + 'm';
+}
+document.querySelectorAll('input[type=range]').forEach(r => r.addEventListener('input', updateLabels));
+
+$('#tabs').onclick = e => { const b = e.target.closest('button'); if (!b) return;
+  document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('active', x === b));
+  document.querySelectorAll('main section').forEach(s => s.classList.toggle('active', s.id === 'tab-' + b.dataset.tab)); };
+
+$('#connectBtn').onclick = () => { if (dev.device && !dev.demo){ attach(dev.device).catch(e => { log(e.message); connect(); }); } else connect(); };
+$('#connectAll').onclick = () => connect(true);
+$('#disconnectBtn').onclick = disconnect;
+$('#demoBtn').onclick = () => { disconnect(); dev.demo = true; dev.proto = PROTOCOLS[0]; dev.userClosed = false; fillHwModes(); setStatus('Demo mode: preview only', 'warn'); toast('Demo mode: the bar at the top shows what the strip would do'); };
+$('#powerBtn').onclick = () => setPower(!dev.on);
+$('#stopBtn').onclick = stopRunner;
+$('#bright').oninput = e => setBrightness(+e.target.value);
+
+let colorThrottle = 0;
+const liveColor = rgb => { const now = performance.now(); state.color = rgb; syncColorUI(); if (now - colorThrottle > 30){ colorThrottle = now; setColor(rgb); } else { clearTimeout(liveColor.t); liveColor.t = setTimeout(() => setColor(state.color), 40); } };
+$('#colorPick').oninput = e => liveColor(hexToRgb(e.target.value));
+['rS','gS','bS'].forEach(id => $('#' + id).oninput = () => liveColor([+$('#rS').value, +$('#gS').value, +$('#bS').value]));
+$('#kelvin').oninput = e => { updateLabels(); liveColor(kelvinToRgb(+e.target.value)); };
+$('#swatches').innerHTML = SWATCHES.map(c => `<div class="sw" style="background:${c}" data-c="${c}"></div>`).join('');
+$('#swatches').onclick = e => { const c = e.target.dataset.c; if (c) setColor(hexToRgb(c)); };
+
+$('#effectBtns').innerHTML = Object.entries(EFFECTS).map(([id, e]) => `<button data-fx="${id}">${e.name}</button>`).join('');
+$('#effectBtns').onclick = e => { const id = e.target.dataset.fx; if (id) runEffect(id); };
+$('#speed').oninput = e => { state.speed = +e.target.value; store.set('speed', state.speed); updateLabels(); if (state.last.kind === 'effect'){ state.last.speed = state.speed; store.set('last', state.last); } };
+$('#addStep').onclick = () => { state.steps.push({ c: rgbToHex(...hsv(Math.random()*360, 1, 1)), fade:900, hold:400 }); saveSteps(); renderSteps(); };
+$('#palettePreset').innerHTML += Object.keys(PALETTES).map(k => `<option>${k}</option>`).join('');
+$('#palettePreset').onchange = e => { const p = PALETTES[e.target.value]; if (p){ setPalette(p); if (runner && runner.name.startsWith('Effect')) runEffect(state.last.id || 'fade'); } e.target.value = ''; };
+$('#hwStart').onclick = () => runHw(+$('#hwMode').value, +$('#hwSpeed').value);
+$('#musicStart').onclick = () => startMusic();
+
+$('#protoSel').innerHTML += PROTOCOLS.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+$('#protoSel').value = store.get('proto', 'auto');
+$('#protoSel').onchange = e => store.set('proto', e.target.value);
+$('#gap').value = state.gap; $('#gap').oninput = e => { state.gap = +e.target.value; store.set('gap', state.gap); updateLabels(); };
+$('#rawSend').onclick = () => {
+  const bytes = $('#rawHex').value.replace(/0x/gi, '').split(/[\s,:]+/).filter(Boolean).map(h => parseInt(h, 16));
+  if (!bytes.length || bytes.some(b => isNaN(b) || b < 0 || b > 255)){ toast('Use hex bytes like: 7e 00 05 03 ff 00 00 00 ef'); return; }
+  if (!dev.char){ toast('Not connected'); return; }
+  stopRunner(); enqueue(bytes); log('Sent raw: ' + bytes.map(b => b.toString(16).padStart(2, '0')).join(' '));
+};
+
+/* ============================== init ============================== */
+$('#bright').value = state.brightness; $('#brightVal').textContent = state.brightness;
+$('#speed').value = state.speed;
+syncColorUI(); renderSteps(); fillHwModes(); renderScenes(); renderSchedules(); updateLabels();
+$('#powerBtn').classList.add('on');
+$('#glow').style.setProperty('--glow', rgbToHex(...state.color.map(v => v*state.brightness/100)));
+if (store.get('wake', false)){ $('#wakeLock').checked = true; setWake(true); }
+if (!navigator.bluetooth) $('#btBanner').hidden = false; else tryAutoReconnect();
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>

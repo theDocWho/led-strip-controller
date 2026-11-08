@@ -159,6 +159,28 @@
       <div class="btns" style="margin-top:8px"><button id="hwStart" class="primary">Run on controller</button></div>
       <p class="hint">These run on the strip's own chip, so they keep going even if you close the app. Mode names can vary between controllers.</p>
     </div>
+    <div class="card" id="pxCard" hidden>
+      <h3>Moving effects <span class="hint">(addressable strip)</span></h3>
+      <div class="inline">
+        <button class="small" id="pxPrev">◀</button>
+        <input type="number" id="pxNum" min="0" max="255" value="1" style="width:74px">
+        <button class="small" id="pxNext">▶</button>
+        <button class="small" id="pxStar" title="Save as favourite">☆ Save</button>
+      </div>
+      <div id="pxName" style="margin-top:8px;font-weight:600"></div>
+      <div class="row"><label>Group</label><select id="pxGroup" style="flex:1"></select></div>
+      <div class="row"><label>Speed</label><input type="range" id="pxSpeed" min="1" max="100" value="50"><span class="val" id="pxSpeedV">50</span></div>
+      <div class="btns wide" style="margin-top:8px">
+        <button id="pxRun" class="primary">Run effect</button>
+        <button id="pxTour">Auto-tour</button>
+      </div>
+      <div class="row"><label>Tour each</label><input type="range" id="pxTourSec" min="2" max="30" value="6"><span class="val" id="pxTourSecV">6s</span></div>
+      <p class="hint">Numbers 1–220 are the chase, flow, fire, curtain, elevator and similar effects these controllers carry. The names come from a related controller (MELK-OA21) and some numbers may look different or do nothing on yours. Use ◀ ▶ or Auto-tour to browse, then <b>☆ Save</b> the ones you like under your own name.</p>
+    </div>
+    <div class="card" id="pxFavCard" hidden>
+      <h3>Favourite effects</h3>
+      <div id="pxFavs"></div>
+    </div>
   </section>
 
   <!-- MUSIC -->
@@ -178,6 +200,13 @@
       <div class="btns" style="margin-top:10px"><button id="musicStart" class="primary">Start listening</button></div>
       <p class="hint">Pulse and Beat flash use your colour steps from the Effects tab. Keep the phone near the speaker. Audio is analysed on the phone and never recorded or sent anywhere.</p>
     </div>
+    <div class="card" id="micCard" hidden>
+      <h3>Strip's own mic <span class="hint">(moving music effects)</span></h3>
+      <select id="micMode" style="width:100%"></select>
+      <div class="row"><label>Sensitivity</label><input type="range" id="micSens" min="0" max="100" value="70"><span class="val" id="micSensV">70</span></div>
+      <div class="btns wide" style="margin-top:8px"><button id="micStart" class="primary">Start on strip</button><button id="micStop">Mic off</button></div>
+      <p class="hint">Uses the microphone on the controller box, if yours has one (a small hole on the box). The effects run along the strip and the phone can sleep. If nothing reacts, your controller has no mic, so use phone-mic sync above.</p>
+    </div>
   </section>
 
   <!-- MEDIA -->
@@ -192,7 +221,7 @@
         <button id="imgPalette">Extract palette → effect</button>
         <button id="imgPlay" class="primary">Play image as timeline</button>
       </div>
-      <p class="hint">Timeline mode sweeps across the picture from left to right and shows the colour of each slice in turn, like a sunset photo turned into a slow sunrise. The strip is one zone, so it can't draw the actual picture (see note below).</p>
+      <p class="hint">Timeline mode sweeps across the picture from left to right and shows the colour of each slice in turn, like a sunset photo turned into a slow sunrise. This plays on the whole strip at once (see the note below about drawing the picture along the LEDs).</p>
     </div>
     <div class="card">
       <h3>Text → light</h3>
@@ -208,8 +237,11 @@
       <div class="btns" style="margin-top:8px"><button id="txtPlay" class="primary">Play text</button></div>
     </div>
     <div class="card">
-      <h3>About real images and text</h3>
-      <p class="hint" style="margin-top:0">Cheap Bluetooth strips light every LED the same colour at the same time, so no app can draw a picture or scroll letters on them. For that you need an <b>addressable</b> strip or matrix (WS2812B / "pixel" / "symphony") driven by an ESP32. Those run around ₹500–1,500 and can run WLED, which this app could be extended to control.</p>
+      <h3>Drawing text and pictures along the strip</h3>
+      <p class="hint" style="margin-top:0">Your strip is addressable: every LED can show a different colour, which is how the moving effects work. But the controller's Bluetooth commands only offer <b>one colour for the whole strip</b> or <b>one of its built-in effects</b>. No per-LED command for MELK controllers has been published, so no app can draw letters or a picture on it yet. Image and Text modes above play over time on the whole strip for this reason.</p>
+      <p class="hint"><b>Two ways to unlock it:</b></p>
+      <p class="hint">1. <b>Capture LotusLamp X.</b> If LotusLamp X has a screen where you colour individual LEDs or segments (often called DIY or Custom), it must have a per-LED command. Record it with Android's Bluetooth HCI snoop log (Developer options) while you use that screen, then share the log so the command can be decoded and added here.</p>
+      <p class="hint">2. <b>Swap the controller for an ESP32</b> (about ₹400–600). Your strip's 3 wires (5V, Data, GND) go to the ESP32, and it can then show scrolling text, pictures and any pixel animation, still controlled from your phone.</p>
     </div>
   </section>
 
@@ -250,6 +282,14 @@
     <div class="card">
       <h3>Schedules</h3>
       <div id="schList"></div>
+    </div>
+    <div class="card" id="hwTimerCard" hidden>
+      <h3>Timer stored on the strip <span class="hint">(works with phone off)</span></h3>
+      <div class="row"><label><input type="checkbox" id="htOnEn"> On at</label><input type="time" id="htOn" value="18:30"></div>
+      <div class="row"><label><input type="checkbox" id="htOffEn"> Off at</label><input type="time" id="htOff" value="23:30"></div>
+      <div class="days" id="htDays" style="margin-top:10px"></div>
+      <div class="btns" style="margin-top:10px"><button id="htSave" class="primary">Sync clock &amp; save to strip</button></div>
+      <p class="hint">Sets the controller's clock from your phone, then saves the on/off times on the controller. If the controller loses power, its clock resets, so tap Save again. Experimental: this uses the timer commands of the ELK controller family and may not be supported on every model.</p>
     </div>
     <div class="card">
       <h3>Sleep timer</h3>
@@ -350,6 +390,21 @@ const MELKO_MODES = [
   [0x00,'Auto play (cycles all)'],[0x01,'Magic back'],[0x02,'Effect 2'],[0x03,'Effect 3'],[0x04,'Effect 4'],[0x05,'Effect 5'],
   [0x10,'Rainbow cycle'],[0x20,'Colour wave'],[0x30,'Breathing'],[0x40,'Strobe'],[0x80,'Jump: RGB'],[0x90,'Fade: RGB'],[0xcf,'Blue scroll']
 ];
+/* Addressable ("symphony") effects 1-220, names from the elkbledom MELK-OA21 list */
+const PX_GROUPS = [[1,1,'Rainbow up'],[2,2,'Rainbow down'],[3,10,'Chase'],[11,22,'Chase pulse'],[23,52,'Chase flow'],[53,54,'Pulse flash'],
+  [55,60,'Curtain'],[61,73,'Fire'],[74,143,'Fade'],[144,167,'Chase action'],[168,181,'Elevator'],[182,193,'Bar flash'],[194,199,'Flash RGB'],
+  [200,200,'Party flash'],[201,201,'Fade bottom'],[202,211,'Pulse'],[212,219,'Fade',70],[220,220,'Fade bar']];
+const MELKO_BASIC = {0:'Auto play',1:'Magic back',16:'Rainbow cycle',32:'Colour wave',48:'Breathing',64:'Strobe',128:'Jump RGB',144:'Fade RGB',207:'Blue scroll'};
+function pxName(n){
+  for (const [a, b, name, off] of PX_GROUPS) if (n >= a && n <= b) return a === b ? name : `${name} ${n - a + 1 + (off || 0)}`;
+  return 'Effect ' + n;
+}
+function pxLabel(n){ const alt = MELKO_BASIC[n]; return `#${n} · ${pxName(n)}` + (alt && pxName(n) !== alt ? ` (OA10 list: ${alt})` : ''); }
+const MIC_MODES = [[0x80,'Flow flash'],[0x81,'Flash'],[0x82,'Rainbow'],[0x83,'Snake'],[0x84,'Rainbow 2'],[0x85,'Pulse'],[0x86,'Flow'],[0x87,'Pulse 2']];
+const elkTimer = {
+  clock: d => { const iso = d.getDay() || 7; return [0x7e,0x00,0x83,d.getHours(),d.getMinutes(),d.getSeconds(),iso,0x00,0xef]; },
+  set: (on, h, m, days, en) => [0x7e,0x00,0x82,h,m,0x00,on ? 0x00 : 0x01,(days & 0x7f) | (en ? 0x80 : 0),0xef]
+};
 const PROTOCOLS = [
   { id:'melko', name:'MELK-Ox (Lotus Lamp X: MELK-OA10/OC10/OF10)', service:0xfff0, char:0xfff3,
     match: n => /^MELK-O/i.test(n || ''),
@@ -358,13 +413,19 @@ const PROTOCOLS = [
     color: (r,g,b) => [0x7e,0x00,0x05,0x03,r,g,b,0x00,0xef],
     brightness: p => [0x7e,0x04,0x01,clamp(p,0,100),0x01,0xff,0xff,0x00,0xef],
     modes: MELKO_MODES,
-    mode: (m, s) => [[0x7e,0x05,0x03,m,0x06,0xff,0xff,0x00,0xef],[0x7e,0x04,0x02,clamp(s,0,100),0xff,0xff,0xff,0x00,0xef]] },
+    mode: (m, s) => [[0x7e,0x05,0x03,m,0x06,0xff,0xff,0x00,0xef],[0x7e,0x04,0x02,clamp(s,0,100),0xff,0xff,0xff,0x00,0xef]],
+    pixelFx: true,
+    mic: { on: m => [[0x7e,0x04,0x07,0x01,0xff,0xff,0xff,0x00,0xef],[0x7e,0x05,0x03,m,0x04,0xff,0xff,0x00,0xef]],
+           sens: v => [0x7e,0x04,0x06,clamp(v,0,100),0xff,0xff,0xff,0x00,0xef],
+           off: () => [0x7e,0x04,0x07,0x00,0xff,0xff,0xff,0x00,0xef] },
+    timer: elkTimer },
   { id:'elk', name:'ELK-BLEDOM (duoCo / Lotus Lamp)', service:0xfff0, char:0xfff3,
     power: on => on ? [0x7e,0x00,0x04,0xf0,0x00,0x01,0xff,0x00,0xef] : [0x7e,0x00,0x04,0x00,0x00,0x00,0xff,0x00,0xef],
     color: (r,g,b) => [0x7e,0x00,0x05,0x03,r,g,b,0x00,0xef],
     brightness: p => [0x7e,0x00,0x01,clamp(p,0,100),0x00,0x00,0x00,0x00,0xef],
     modes: ELK_MODES,
-    mode: (m, s) => [[0x7e,0x00,0x03,m,0x03,0x00,0x00,0x00,0xef],[0x7e,0x00,0x02,clamp(s,0,100),0x00,0x00,0x00,0x00,0xef]] },
+    mode: (m, s) => [[0x7e,0x00,0x03,m,0x03,0x00,0x00,0x00,0xef],[0x7e,0x00,0x02,clamp(s,0,100),0x00,0x00,0x00,0x00,0xef]],
+    timer: elkTimer },
   { id:'triones', name:'Triones (Happy Lighting)', service:0xffd5, char:0xffd9, ...triCmds },
   { id:'ledblue', name:'LEDBlue (Magic Home BLE, older)', service:0xffe5, char:0xffe9, ...triCmds },
 ];
@@ -488,14 +549,14 @@ async function tryAutoReconnect(){ // works where Chrome exposes getDevices() (n
 function ensureOn(){ if (!dev.on) setPower(true, false); }
 function setPower(on, restore=true){
   dev.on = on; $('#powerBtn').classList.toggle('on', on);
-  if (!on){ stopRunner(); $('#glow').style.setProperty('--glow', '#000'); }
+  if (!on){ stopRunner(); stopTour(); $('#glow').style.setProperty('--glow', '#000'); }
   if (dev.proto){ dev.pendingColor = null; enqueue(dev.proto.power(on)); }
   if (on && restore && state.last) setTimeout(() => applyAction(state.last, false), 150);
 }
 
 /* ============================== runner (one active thing at a time) ============================== */
 let runner = null;
-function startRunner(name, stopFn){ stopRunner(); showConnected(); runner = { name, stop: stopFn }; $('#runnerName').textContent = name; $('#runnerBox').hidden = false; }
+function startRunner(name, stopFn){ stopRunner(); stopTour(); showConnected(); runner = { name, stop: stopFn }; $('#runnerName').textContent = name; $('#runnerBox').hidden = false; }
 function stopRunner(){ if (runner){ const r = runner; runner = null; try { r.stop(); } catch {} } $('#runnerBox').hidden = true; $('#musicStart').textContent = 'Start listening'; }
 function startLoop(name, fps, frame){
   const t0 = performance.now();
@@ -506,7 +567,7 @@ function remember(action){ state.last = action; store.set('last', action); }
 
 /* ============================== colour ============================== */
 function setColor(rgb, save=true){
-  stopRunner(); showConnected(); state.color = rgb.map(Math.round); store.set('color', state.color);
+  stopRunner(); stopTour(); showConnected(); state.color = rgb.map(Math.round); store.set('color', state.color);
   syncColorUI(); ensureOn();
   out(state.color);
   if (save) remember({ kind:'color', hex: rgbToHex(...state.color) });
@@ -585,18 +646,88 @@ function setPalette(hexes){ state.steps = hexes.map(c => ({ c, fade:900, hold:40
 /* hardware modes */
 function fillHwModes(){
   const p = dev.proto || PROTOCOLS[0];
+  $('#pxCard').hidden = $('#pxFavCard').hidden = !p.pixelFx;
+  $('#micCard').hidden = !p.mic;
+  $('#hwTimerCard').hidden = !p.timer;
   $('#hwMode').innerHTML = p.modes.map(([v, n]) => `<option value="${v}">${esc(n)}</option>`).join('');
 }
-function runHw(code, speed, save=true){
+function runHw(code, speed, save=true, opts={}){
   stopRunner(); ensureOn();
   if (!dev.proto){ toast('Connect a strip first'); return; }
   dev.pendingColor = null;
   enqueue(...dev.proto.mode(code, speed));
-  const name = (dev.proto.modes.find(m => m[0] === code) || [0,'mode'])[1];
-  setStatus(`${dev.device ? dev.device.name : 'Demo'} · controller mode: ${name}`, 'ok');
+  const name = opts.name || (dev.proto.modes.find(m => m[0] === code) || [0, dev.proto.pixelFx ? pxName(code) : 'mode'])[1];
+  setStatus(`${dev.device ? dev.device.name : 'Demo'} · effect: ${name}`, 'ok');
   $('#glow').style.setProperty('--glow', '#334');
   if (save) remember({ kind:'hw', code, speed });
+  if (!opts.keepTour) stopTour();
 }
+
+/* ============================== addressable effects ============================== */
+let pxFavs = store.get('pxFavs', []);
+let tourT = null;
+function pxShow(){ const n = clamp(+$('#pxNum').value || 0, 0, 255); $('#pxNum').value = n; $('#pxName').textContent = pxLabel(n);
+  const g = PX_GROUPS.findIndex(([a, b]) => n >= a && n <= b); $('#pxGroup').value = g >= 0 ? String(g) : ''; }
+function pxRun(n, opts={}){ $('#pxNum').value = n; pxShow(); runHw(n, +$('#pxSpeed').value, true, { name: pxName(n), ...opts }); }
+function pxStep(d){ let n = (+$('#pxNum').value || 0) + d; if (n < 1) n = 220; if (n > 220) n = 1; pxRun(n, { keepTour: !!tourT }); }
+function stopTour(){ if (tourT){ clearInterval(tourT); tourT = null; $('#pxTour').textContent = 'Auto-tour'; } }
+function renderPxFavs(){
+  $('#pxFavs').innerHTML = pxFavs.length ? pxFavs.map((f, i) => `<div class="list-item"><div class="grow"><div>${esc(f.name)}</div><div class="sub">#${f.n} · speed ${f.speed}</div></div>
+      <button class="small primary" data-pxa="${i}">Run</button><button class="small danger" data-pxd="${i}">✕</button></div>`).join('')
+    : '<p class="hint" style="margin:0">Tap ☆ Save on an effect you like.</p>';
+  $('#pxFavs').querySelectorAll('[data-pxa]').forEach(b => b.onclick = () => { const f = pxFavs[+b.dataset.pxa]; $('#pxSpeed').value = f.speed; updateLabels(); runHw(f.n, f.speed, true, { name: f.name }); $('#pxNum').value = f.n; pxShow(); });
+  $('#pxFavs').querySelectorAll('[data-pxd]').forEach(b => b.onclick = () => { pxFavs.splice(+b.dataset.pxd, 1); store.set('pxFavs', pxFavs); renderPxFavs(); });
+}
+$('#pxGroup').innerHTML = '<option value="">Jump to group…</option>' + PX_GROUPS.map(([a, b, name], i) => `<option value="${i}">${esc(name)}${a !== b ? ` (${b - a + 1})` : ''} · #${a}${a !== b ? '–' + b : ''}</option>`).join('');
+$('#pxGroup').onchange = e => { const g = PX_GROUPS[+e.target.value]; if (g) pxRun(g[0]); };
+$('#pxNum').onchange = pxShow;
+$('#pxPrev').onclick = () => pxStep(-1);
+$('#pxNext').onclick = () => pxStep(1);
+$('#pxRun').onclick = () => pxRun(+$('#pxNum').value);
+$('#pxSpeed').onchange = () => { if (state.last.kind === 'hw' && dev.proto && dev.proto.pixelFx) runHw(state.last.code, +$('#pxSpeed').value, true, { keepTour: !!tourT }); };
+$('#pxTour').onclick = () => {
+  if (tourT){ stopTour(); return; }
+  if (!dev.proto){ toast('Connect a strip first'); return; }
+  pxRun(+$('#pxNum').value || 1, { keepTour: true });
+  $('#pxTour').textContent = 'Stop tour';
+  tourT = setInterval(() => pxStep(1), (+$('#pxTourSec').value) * 1000);
+};
+$('#pxStar').onclick = () => {
+  const n = +$('#pxNum').value, name = (prompt_('Name this effect', pxName(n)) || '').trim(); if (!name) return;
+  pxFavs.unshift({ n, name, speed: +$('#pxSpeed').value }); store.set('pxFavs', pxFavs); renderPxFavs(); toast('Saved "' + name + '"');
+};
+function prompt_(msg, def){ try { const r = window.prompt(msg, def); return r === null ? '' : r; } catch { return def; } }
+
+/* strip's own microphone */
+$('#micMode').innerHTML = MIC_MODES.map(([v, n]) => `<option value="${v}">${esc(n)}</option>`).join('');
+function runStripMic(mode, sens, save=true){
+  stopRunner(); stopTour(); ensureOn();
+  if (!dev.proto || !dev.proto.mic){ toast('This controller has no mic commands'); return; }
+  dev.pendingColor = null;
+  enqueue(...dev.proto.mic.on(mode), dev.proto.mic.sens(sens));
+  setStatus(`${dev.device ? dev.device.name : 'Demo'} · strip mic: ${(MIC_MODES.find(m => m[0] === mode) || [0, ''])[1]}`, 'ok');
+  $('#glow').style.setProperty('--glow', '#334');
+  if (save) remember({ kind:'stripmic', mode, sens });
+}
+$('#micStart').onclick = () => runStripMic(+$('#micMode').value, +$('#micSens').value);
+$('#micStop').onclick = () => { if (dev.proto && dev.proto.mic){ enqueue(dev.proto.mic.off()); showConnected(); toast('Strip mic off'); } };
+$('#micSens').onchange = () => { if (dev.proto && dev.proto.mic && state.last.kind === 'stripmic') enqueue(dev.proto.mic.sens(+$('#micSens').value)); };
+
+/* timer stored on the strip (Mon=0x01 … Sun=0x40) */
+const HT_DAYS = [['Mo',0x01],['Tu',0x02],['We',0x04],['Th',0x08],['Fr',0x10],['Sa',0x20],['Su',0x40]];
+$('#htDays').innerHTML = HT_DAYS.map(([d, bit]) => `<label><input type="checkbox" value="${bit}" checked><span>${d}</span></label>`).join('');
+(() => { const t = store.get('hwTimer', null); if (t){ $('#htOn').value = t.on; $('#htOff').value = t.off; $('#htOnEn').checked = t.onEn; $('#htOffEn').checked = t.offEn;
+  $('#htDays').querySelectorAll('input').forEach(i => i.checked = (t.days & +i.value) !== 0); } })();
+$('#htSave').onclick = () => {
+  if (!dev.proto || !dev.proto.timer){ toast('Connect a strip first'); return; }
+  const days = [...$('#htDays').querySelectorAll('input:checked')].reduce((a, i) => a | +i.value, 0);
+  if (!days){ toast('Pick at least one day'); return; }
+  const [onH, onM] = $('#htOn').value.split(':').map(Number), [offH, offM] = $('#htOff').value.split(':').map(Number);
+  const T = dev.proto.timer;
+  enqueue(T.clock(new Date()), T.set(true, onH, onM, days, $('#htOnEn').checked), T.set(false, offH, offM, days, $('#htOffEn').checked));
+  store.set('hwTimer', { on: $('#htOn').value, off: $('#htOff').value, onEn: $('#htOnEn').checked, offEn: $('#htOffEn').checked, days });
+  log('Strip timer saved'); toast('Clock synced and timer saved to strip');
+};
 
 /* ============================== music ============================== */
 async function startMusic(save=true){
@@ -748,6 +879,7 @@ function applyAction(a, save=true){
   if (a.kind === 'color') setColor(hexToRgb(a.hex), save);
   else if (a.kind === 'effect'){ if (a.steps){ state.steps = JSON.parse(JSON.stringify(a.steps)); saveSteps(); renderSteps(); } if (a.speed){ state.speed = a.speed; $('#speed').value = a.speed; $('#speedV').textContent = a.speed; store.set('speed', a.speed); } runEffect(a.id, save); }
   else if (a.kind === 'hw') runHw(a.code, a.speed, save);
+  else if (a.kind === 'stripmic') runStripMic(a.mode, a.sens, save);
   else if (a.kind === 'music'){ $('#musicMode').value = a.mode; $('#musicSens').value = a.sens; $('#musicFloor').value = a.floor; updateLabels(); startMusic(save); }
   else if (a.kind === 'image'){ const cols = a.cols, dur = a.dur, n = cols.length; startLoop('Image timeline', 25, t => { const p = (t % dur)/dur*n, i = Math.floor(p)%n; out(mix(cols[i], cols[(i+1)%n], p%1)); }); if (save) remember(a); }
   else if (a.kind === 'text'){ $('#txt').value = a.txt; $('#txtMode').value = a.mode; $('#txtUnit').value = a.unit; $('#txtLoop').checked = a.loop; $('#txtColor').value = a.color; updateLabels(); playText(save); }
@@ -756,7 +888,8 @@ function applyScene(s){ setBrightness(s.brightness ?? state.brightness); ensureO
 function sceneChips(a){
   if (a.kind === 'color') return `<span class="chip" style="background:${a.hex}"></span>`;
   if (a.kind === 'effect' && a.steps) return a.steps.slice(0, 6).map(s => `<span class="chip" style="background:${s.c}"></span>`).join('') + ` ${esc(EFFECTS[a.id] ? EFFECTS[a.id].name : a.id)}`;
-  return { hw:'Controller mode', music:'Music sync', image:'Image timeline', text:'Text' }[a.kind] || a.kind;
+  if (a.kind === 'hw') return 'Strip effect #' + a.code;
+  return { music:'Music sync', stripmic:'Strip mic', image:'Image timeline', text:'Text' }[a.kind] || a.kind;
 }
 function renderScenes(){
   const all = [...scenes.map((s, i) => ({ ...s, idx:i })), ...BUILTIN_SCENES.map(s => ({ ...s, builtin:true }))];
@@ -877,6 +1010,7 @@ function updateLabels(){
   $('#imgDurV').textContent = $('#imgDur').value + 's'; $('#txtUnitV').textContent = $('#txtUnit').value + 'ms';
   $('#gapV').textContent = $('#gap').value + 'ms'; $('#kelvinV').textContent = $('#kelvin').value + 'K';
   $('#schSunMinV').textContent = $('#schSunMin').value + 'm';
+  $('#pxSpeedV').textContent = $('#pxSpeed').value; $('#pxTourSecV').textContent = $('#pxTourSec').value + 's'; $('#micSensV').textContent = $('#micSens').value;
 }
 document.querySelectorAll('input[type=range]').forEach(r => r.addEventListener('input', updateLabels));
 
@@ -923,7 +1057,7 @@ $('#rawSend').onclick = () => {
 /* ============================== init ============================== */
 $('#bright').value = state.brightness; $('#brightVal').textContent = state.brightness;
 $('#speed').value = state.speed;
-syncColorUI(); renderSteps(); fillHwModes(); renderScenes(); renderSchedules(); updateLabels();
+syncColorUI(); renderSteps(); fillHwModes(); renderScenes(); renderSchedules(); renderPxFavs(); pxShow(); updateLabels();
 $('#powerBtn').classList.add('on');
 $('#glow').style.setProperty('--glow', rgbToHex(...state.color.map(v => v*state.brightness/100)));
 if (store.get('wake', false)){ $('#wakeLock').checked = true; setWake(true); }

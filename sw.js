@@ -1,5 +1,5 @@
 // Offline cache for the app shell. Bump VERSION after editing index.html so phones pick up the change.
-const VERSION = 'strip-studio-v2';
+const VERSION = 'strip-studio-v3';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', e => {

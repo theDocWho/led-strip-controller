@@ -327,6 +327,13 @@
           <option value="classic">Classic style (7e 00 …, with login)</option>
         </select>
       </div>
+      <div class="row"><label>Write mode</label>
+        <select id="writeModeSel" style="flex:1">
+          <option value="auto">Auto</option>
+          <option value="with">With response</option>
+          <option value="without">Without response</option>
+        </select>
+      </div>
       <div class="row"><label>Send gap</label><input type="range" id="gap" min="0" max="120" value="25"><span class="val" id="gapV">25ms</span></div>
       <p class="hint">If the strip lags or skips colours during effects or music, raise the send gap. Close duoCo / Lotus Lamp / Happy Lighting first: the controller accepts only one connection at a time.</p>
     </div>
@@ -346,7 +353,7 @@
 
 <script>
 'use strict';
-const APP_VERSION = 'v8 · 8 Nov 2026';
+const APP_VERSION = 'v9 · 8 Nov 2026';
 /* ============================== helpers ============================== */
 const $ = s => document.querySelector(s);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -676,7 +683,10 @@ function swBright(){ return !dev.proto || dev.demo || !dev.proto.brightness; }
 async function rawWrite(bytes){
   if (dev.demo || !dev.char) return;
   const data = new Uint8Array(bytes), c = dev.char;
-  if (c.properties.writeWithoutResponse && c.writeValueWithoutResponse) await c.writeValueWithoutResponse(data);
+  const force = store.get('writeMode', 'auto');
+  if (force === 'with' && c.writeValueWithResponse) await c.writeValueWithResponse(data);
+  else if (force === 'without' && c.writeValueWithoutResponse) await c.writeValueWithoutResponse(data);
+  else if (c.properties.writeWithoutResponse && c.writeValueWithoutResponse) await c.writeValueWithoutResponse(data);
   else if (c.writeValueWithResponse) await c.writeValueWithResponse(data);
   else await c.writeValue(data);
 }
@@ -744,6 +754,9 @@ async function attach(d){
     for (const cmd of proto.login){ const b = new Uint8Array(cmd); if (ch.writeValueWithoutResponse) await ch.writeValueWithoutResponse(b); else await ch.writeValue(b); await sleep(1000); }
   }
   dev.char = ch; dev.proto = proto;
+  if (ch){ const pr = ch.properties || {};
+    dev.writeMode = (pr.writeWithoutResponse && ch.writeValueWithoutResponse) ? 'without-response' : 'with-response';
+    log(`Char ${proto.char.toString(16)}: write=${!!pr.write} writeNoResp=${!!pr.writeWithoutResponse} notify=${!!pr.notify} read=${!!pr.read} · sending ${dev.writeMode} · device id ${String(d.id).slice(0,8)}`); }
   if (!dev.char){ d.gatt.disconnect(); throw new Error('no supported LED service on this device. Try "Show all Bluetooth devices" and pick another, or check the Log.'); }
   dev.retries = 0; store.set('lastName', d.name); store.set('lastProto', dev.proto.id);
   setStatus(`${d.name || 'LED strip'} · ${dev.proto.name}`, 'ok');
@@ -1304,6 +1317,8 @@ $('#musicStart').onclick = () => startMusic();
 $('#protoSel').innerHTML += PROTOCOLS.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
 $('#protoSel').value = store.get('proto', 'auto');
 $('#melkStyleSel').value = melkStyle();
+$('#writeModeSel').value = store.get('writeMode', 'auto');
+$('#writeModeSel').onchange = e => { store.set('writeMode', e.target.value); log('Write mode: ' + e.target.value); toast('Write mode saved'); };
 $('#melkStyleSel').onchange = e => { store.set('melkStyle', e.target.value); log('MELK style: ' + e.target.value); toast('Style saved. Tap Reconnect to apply.'); };
 $('#protoSel').onchange = e => store.set('proto', e.target.value);
 $('#gap').value = state.gap; $('#gap').oninput = e => { state.gap = +e.target.value; store.set('gap', state.gap); updateLabels(); };

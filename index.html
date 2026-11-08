@@ -163,7 +163,7 @@
       <h3>Moving effects <span class="hint">(addressable strip)</span></h3>
       <div class="inline">
         <button class="small" id="pxPrev">◀</button>
-        <input type="number" id="pxNum" min="0" max="255" value="1" style="width:74px">
+        <input type="number" id="pxNum" min="1" max="255" value="1" style="width:74px">
         <button class="small" id="pxNext">▶</button>
         <button class="small" id="pxStar" title="Save as favourite">☆ Save</button>
       </div>
@@ -340,7 +340,7 @@
 
 <script>
 'use strict';
-const APP_VERSION = 'v5 · 8 Nov 2026';
+const APP_VERSION = 'v6 · 8 Nov 2026';
 /* ============================== helpers ============================== */
 const $ = s => document.querySelector(s);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -388,7 +388,7 @@ const triCmds = {
   mode: (m, s) => [[0xbb, m, Math.round(31 - (s/100)*30), 0x44]] // 1 = fastest, 31 = slowest
 };
 const MELKO_MODES = [
-  [0x00,'Auto play (cycles all)'],[0x01,'Magic back'],[0x02,'Effect 2'],[0x03,'Effect 3'],[0x04,'Effect 4'],[0x05,'Effect 5'],
+  [0x01,'Magic back'],[0x02,'Effect 2'],[0x03,'Effect 3'],[0x04,'Effect 4'],[0x05,'Effect 5'],
   [0x10,'Rainbow cycle'],[0x20,'Colour wave'],[0x30,'Breathing'],[0x40,'Strobe'],[0x80,'Jump: RGB'],[0x90,'Fade: RGB'],[0xcf,'Blue scroll']
 ];
 /* Addressable ("symphony") effects 1-220, names from the elkbledom MELK-OA21 list */
@@ -689,7 +689,7 @@ function renderPxFavs(){
 }
 $('#pxGroup').innerHTML = '<option value="">Jump to group…</option>' + PX_GROUPS.map(([a, b, name], i) => `<option value="${i}">${esc(name)}${a !== b ? ` (${b - a + 1})` : ''} · #${a}${a !== b ? '–' + b : ''}</option>`).join('');
 $('#pxGroup').onchange = e => { const g = PX_GROUPS[+e.target.value]; if (g) pxRun(g[0]); };
-$('#pxNum').onchange = pxShow;
+$('#pxNum').onchange = () => { if (+$('#pxNum').value < 1) $('#pxNum').value = 1; pxShow(); };
 $('#pxPrev').onclick = () => pxStep(-1);
 $('#pxNext').onclick = () => pxStep(1);
 $('#pxRun').onclick = () => pxRun(+$('#pxNum').value);
@@ -887,7 +887,7 @@ function applyAction(a, save=true){
   if (!a) return;
   if (a.kind === 'color') setColor(hexToRgb(a.hex), save);
   else if (a.kind === 'effect'){ if (a.steps){ state.steps = JSON.parse(JSON.stringify(a.steps)); saveSteps(); renderSteps(); } if (a.speed){ state.speed = a.speed; $('#speed').value = a.speed; $('#speedV').textContent = a.speed; store.set('speed', a.speed); } runEffect(a.id, save); }
-  else if (a.kind === 'hw') runHw(a.code, a.speed, save);
+  else if (a.kind === 'hw'){ if (a.code === 0 && dev.proto && dev.proto.id === 'melko') setColor(state.color, save); else runHw(a.code, a.speed, save); }
   else if (a.kind === 'stripmic') runStripMic(a.mode, a.sens, save);
   else if (a.kind === 'music'){ $('#musicMode').value = a.mode; $('#musicSens').value = a.sens; $('#musicFloor').value = a.floor; updateLabels(); startMusic(save); }
   else if (a.kind === 'image'){ const cols = a.cols, dur = a.dur, n = cols.length; startLoop('Image timeline', 25, t => { const p = (t % dur)/dur*n, i = Math.floor(p)%n; out(mix(cols[i], cols[(i+1)%n], p%1)); }); if (save) remember(a); }

@@ -340,7 +340,7 @@
 
 <script>
 'use strict';
-const APP_VERSION = 'v4 · 8 Nov 2026';
+const APP_VERSION = 'v5 · 8 Nov 2026';
 /* ============================== helpers ============================== */
 const $ = s => document.querySelector(s);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -519,7 +519,14 @@ async function attach(d){
   log(`Connected to ${d.name} using ${dev.proto.name}`);
   $('#connectBtn').textContent = 'Reconnect';
   fillHwModes();
+  if (dev.proto.login){
+    // The MELK login's last command (7e 04 04) switches the strip off, and it then ignores
+    // colour/effect writes. Power it back on and restore what was running.
+    dev.on = true; $('#powerBtn').classList.add('on');
+    enqueue(dev.proto.power(true));
+  }
   if (dev.proto.brightness) enqueue(dev.proto.brightness(state.brightness));
+  if (dev.proto.login && state.last && state.last.kind !== 'music') setTimeout(() => applyAction(state.last, false), 300);
 }
 async function onDisconnect(){
   dev.char = null;

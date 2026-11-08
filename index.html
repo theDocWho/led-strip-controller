@@ -330,7 +330,7 @@
       <p class="hint">Send any bytes in hex. Useful for testing a controller that behaves differently.</p>
     </div>
     <div class="card">
-      <h3>Log</h3>
+      <h3>Log <span class="hint" id="appVer"></span></h3>
       <pre id="log"></pre>
     </div>
   </section>
@@ -340,6 +340,7 @@
 
 <script>
 'use strict';
+const APP_VERSION = 'v4 · 8 Nov 2026';
 /* ============================== helpers ============================== */
 const $ = s => document.querySelector(s);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -513,7 +514,7 @@ async function attach(d){
   }
   dev.char = ch; dev.proto = proto;
   if (!dev.char){ d.gatt.disconnect(); throw new Error('no supported LED service on this device. Try "Show all Bluetooth devices" and pick another, or check the Log.'); }
-  dev.retries = 0; store.set('lastName', d.name);
+  dev.retries = 0; store.set('lastName', d.name); store.set('lastProto', dev.proto.id);
   setStatus(`${d.name || 'LED strip'} · ${dev.proto.name}`, 'ok');
   log(`Connected to ${d.name} using ${dev.proto.name}`);
   $('#connectBtn').textContent = 'Reconnect';
@@ -645,10 +646,11 @@ function setPalette(hexes){ state.steps = hexes.map(c => ({ c, fade:900, hold:40
 
 /* hardware modes */
 function fillHwModes(){
-  const p = dev.proto || PROTOCOLS[0];
-  $('#pxCard').hidden = $('#pxFavCard').hidden = !p.pixelFx;
-  $('#micCard').hidden = !p.mic;
-  $('#hwTimerCard').hidden = !p.timer;
+  const p = dev.proto || PROTOCOLS.find(x => x.id === (store.get('lastProto', 'melko'))) || PROTOCOLS[0];
+  const known = !!dev.proto; // before connecting, show everything
+  $('#pxCard').hidden = $('#pxFavCard').hidden = known && !p.pixelFx;
+  $('#micCard').hidden = known && !p.mic;
+  $('#hwTimerCard').hidden = known && !p.timer;
   $('#hwMode').innerHTML = p.modes.map(([v, n]) => `<option value="${v}">${esc(n)}</option>`).join('');
 }
 function runHw(code, speed, save=true, opts={}){
@@ -1059,10 +1061,15 @@ $('#bright').value = state.brightness; $('#brightVal').textContent = state.brigh
 $('#speed').value = state.speed;
 syncColorUI(); renderSteps(); fillHwModes(); renderScenes(); renderSchedules(); renderPxFavs(); pxShow(); updateLabels();
 $('#powerBtn').classList.add('on');
+$('#appVer').textContent = '· app ' + APP_VERSION;
 $('#glow').style.setProperty('--glow', rgbToHex(...state.color.map(v => v*state.brightness/100)));
 if (store.get('wake', false)){ $('#wakeLock').checked = true; setWake(true); }
 if (!navigator.bluetooth) $('#btBanner').hidden = false; else tryAutoReconnect();
-if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+if ('serviceWorker' in navigator && location.protocol === 'https:'){
+  const hadController = !!navigator.serviceWorker.controller; let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController && !reloaded){ reloaded = true; location.reload(); } });
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => {});
+}
 </script>
 </body>
 </html>

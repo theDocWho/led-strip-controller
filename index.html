@@ -321,6 +321,12 @@
           <option value="auto">Auto-detect</option>
         </select>
       </div>
+      <div class="row"><label>MELK style</label>
+        <select id="melkStyleSel" style="flex:1">
+          <option value="app">Lotus Lamp X app style (7e 07 …)</option>
+          <option value="classic">Classic style (7e 00 …, with login)</option>
+        </select>
+      </div>
       <div class="row"><label>Send gap</label><input type="range" id="gap" min="0" max="120" value="25"><span class="val" id="gapV">25ms</span></div>
       <p class="hint">If the strip lags or skips colours during effects or music, raise the send gap. Close duoCo / Lotus Lamp / Happy Lighting first: the controller accepts only one connection at a time.</p>
     </div>
@@ -340,7 +346,7 @@
 
 <script>
 'use strict';
-const APP_VERSION = 'v7 · 8 Nov 2026';
+const APP_VERSION = 'v8 · 8 Nov 2026';
 /* ============================== helpers ============================== */
 const $ = s => document.querySelector(s);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -612,20 +618,31 @@ const elkTimer = {
   clock: d => { const iso = d.getDay() || 7; return [0x7e,0x00,0x83,d.getHours(),d.getMinutes(),d.getSeconds(),iso,0x00,0xef]; },
   set: (on, h, m, days, en) => [0x7e,0x00,0x82,h,m,0x00,on ? 0x00 : 0x01,(days & 0x7f) | (en ? 0x80 : 0),0xef]
 };
+function melkStyle(){ return store.get('melkStyle', 'app'); }
+function melkSpeed(s){ return melkStyle() === 'app' ? [0x7e,0x04,0x02,clamp(s,0,100),0xff,0xff,0xff,0x00,0xef] : [0x7e,0x00,0x02,clamp(s,0,100),0x00,0x00,0x00,0x00,0xef]; }
 const PROTOCOLS = [
-  { id:'melko', name:'MELK-OA10 (Lotus Lamp X)', service:0xfff0, char:0xfff3,
+  /* MELK-OA10 firmware comes in variants that expect different frames:
+     'app'     = Lotus Lamp X app framing (7e 07 ...), as used by Glowstrip (Web Bluetooth, used daily on MELK-OA10)
+     'classic' = 7e 00 ... framing plus login handshake, verified on MELK-OA10 by lotus-lamp-rs */
+  { id:'melko', name:'MELK-OA10 (Lotus Lamp X)', service:0xfff0, char:0xfff3, notify:0xfff4,
     match: n => /^MELK-O/i.test(n || ''),
-    // Firmware ignores commands until it sees this handshake; the second frame is a full power-on.
-    login: [[0x7e,0x07,0x83],[0x7e,0x04,0x04,0xf0,0x00,0x01,0xff,0x00,0xef]],
-    power: on => on ? [0x7e,0x00,0x04,0xf0,0x00,0x01,0xff,0x00,0xef] : [0x7e,0x00,0x04,0x00,0x00,0x00,0xff,0x00,0xef],
-    color: (r,g,b) => [0x7e,0x00,0x05,0x03,r,g,b,0x00,0xef],
-    brightness: p => [0x7e,0x00,0x01,clamp(p,0,100),0x00,0x00,0x00,0x00,0xef],
+    get login(){ return melkStyle() === 'app' ? null : [[0x7e,0x07,0x83],[0x7e,0x04,0x04,0xf0,0x00,0x01,0xff,0x00,0xef]]; },
+    power: on => melkStyle() === 'app'
+      ? [0x7e,0x07,0x04,on ? 0xff : 0x00,0x01,on ? 0x01 : 0x00,0x02,0x01,0xef]
+      : (on ? [0x7e,0x00,0x04,0xf0,0x00,0x01,0xff,0x00,0xef] : [0x7e,0x00,0x04,0x00,0x00,0x00,0xff,0x00,0xef]),
+    color: (r,g,b) => melkStyle() === 'app' ? [0x7e,0x07,0x05,0x03,r,g,b,0x10,0xef] : [0x7e,0x00,0x05,0x03,r,g,b,0x00,0xef],
+    brightness: p => melkStyle() === 'app' ? [0x7e,0x07,0x01,clamp(p,0,100),0xff,0xff,0xff,0x00,0xef] : [0x7e,0x00,0x01,clamp(p,0,100),0x00,0x00,0x00,0x00,0xef],
     modes: ELK_MODES,
-    mode: (m, s) => [[0x7e,0x00,0x03,m,0x03,0x00,0x00,0x00,0xef],[0x7e,0x00,0x02,clamp(s,0,100),0x00,0x00,0x00,0x00,0xef]],
+    mode: (m, s) => [[0x7e,0x00,0x03,m,0x03,0x00,0x00,0x00,0xef], melkSpeed(s)],
     patterns: MELK_PATTERNS,
-    pattern: (id, s) => [[0x7e,0x07,0x03,id,0x06,0xff,0xff,0x00,0xef],[0x7e,0x00,0x02,clamp(s,0,100),0x00,0x00,0x00,0x00,0xef]],
-    mic: { on: m => [[0x7e,0x07,0x03,m,0x04,0xff,0xff,0x00,0xef]],
-           sens: v => [0x7e,0x07,0x06,clamp(v,0,100),0xff,0xff,0xff,0x00,0xef] },
+    pattern: (id, s) => melkStyle() === 'app'
+      ? [[0x7e,0x07,0x03,id,0xff,0xff,0xff,0x00,0xef], melkSpeed(s)]
+      : [[0x7e,0x07,0x03,id,0x06,0xff,0xff,0x00,0xef], melkSpeed(s)],
+    mic: { on: m => melkStyle() === 'app'
+             ? [[0x7e,0x07,0x07,0x01,0xff,0xff,0xff,0x00,0xef],[0x7e,0x07,0x03,m,0x04,0xff,0xff,0x00,0xef]]
+             : [[0x7e,0x07,0x03,m,0x04,0xff,0xff,0x00,0xef]],
+           sens: v => melkStyle() === 'app' ? [0x7e,0x07,0x06,Math.round(clamp(v,0,100)*2.55),0xff,0xff,0xff,0x00,0xef] : [0x7e,0x07,0x06,clamp(v,0,100),0xff,0xff,0xff,0x00,0xef],
+           get off(){ return melkStyle() === 'app' ? () => [0x7e,0x07,0x07,0x00,0xff,0xff,0xff,0x00,0xef] : null; } },
     timer: elkTimer },
   { id:'elk', name:'ELK-BLEDOM (duoCo / Lotus Lamp)', service:0xfff0, char:0xfff3,
     power: on => on ? [0x7e,0x00,0x04,0xf0,0x00,0x01,0xff,0x00,0xef] : [0x7e,0x00,0x04,0x00,0x00,0x00,0xff,0x00,0xef],
@@ -663,13 +680,17 @@ async function rawWrite(bytes){
   else if (c.writeValueWithResponse) await c.writeValueWithResponse(data);
   else await c.writeValue(data);
 }
+setInterval(async () => { // keep-alive: some controllers drop a link after ~1 min of silence
+  if (!dev.char || dev.busy || dev.demo || Date.now() - (dev.lastIO || 0) < 20000 || !dev.char.readValue) return;
+  try { await dev.char.readValue(); dev.lastIO = Date.now(); } catch (e){ log('Keep-alive read failed: ' + e.message); }
+}, 5000);
 function enqueue(...cmds){ for (const c of cmds) dev.queue.push(c); pump(); }
 async function pump(){
   if (dev.busy) return; dev.busy = true;
   try {
     while (dev.queue.length || dev.pendingColor){
       let b; if (dev.queue.length) b = dev.queue.shift(); else { b = dev.pendingColor; dev.pendingColor = null; }
-      try { await rawWrite(b); }
+      try { await rawWrite(b); dev.lastIO = Date.now(); }
       catch (e){ log('Write error: ' + e.message); if (!dev.device || !dev.device.gatt.connected){ dev.queue = []; dev.pendingColor = null; break; } }
       if (state.gap && !dev.demo) await sleep(state.gap);
     }
@@ -713,7 +734,10 @@ async function attach(d){
   const server = await d.gatt.connect();
   let ch = null, proto = null;
   for (const p of orderedProtocols(d.name)){
-    try { const svc = await server.getPrimaryService(p.service); ch = await svc.getCharacteristic(p.char); proto = p; break; } catch {}
+    try { const svc = await server.getPrimaryService(p.service); ch = await svc.getCharacteristic(p.char); proto = p;
+      if (p.notify){ try { const rx = await svc.getCharacteristic(p.notify); await rx.startNotifications();
+        rx.addEventListener('characteristicvaluechanged', e => log('← ' + [...new Uint8Array(e.target.value.buffer)].map(b => b.toString(16).padStart(2,'0')).join(' '))); } catch {} }
+      break; } catch {}
   }
   if (ch && proto.login){ // log in before anything else is allowed to write
     setStatus('Logging in to ' + (d.name || 'controller') + '…', 'warn');
@@ -723,17 +747,17 @@ async function attach(d){
   if (!dev.char){ d.gatt.disconnect(); throw new Error('no supported LED service on this device. Try "Show all Bluetooth devices" and pick another, or check the Log.'); }
   dev.retries = 0; store.set('lastName', d.name); store.set('lastProto', dev.proto.id);
   setStatus(`${d.name || 'LED strip'} · ${dev.proto.name}`, 'ok');
-  log(`Connected to ${d.name} using ${dev.proto.name}`);
+  log(`Connected to ${d.name} using ${dev.proto.name}${dev.proto.id === 'melko' ? ' · style: ' + melkStyle() : ''}`);
   $('#connectBtn').textContent = 'Reconnect';
   fillHwModes();
-  if (dev.proto.login){
+  if (dev.proto.login || dev.proto.id === 'melko'){
     // The MELK login's last command (7e 04 04) switches the strip off, and it then ignores
     // colour/effect writes. Power it back on and restore what was running.
     dev.on = true; $('#powerBtn').classList.add('on');
     enqueue(dev.proto.power(true));
   }
   if (dev.proto.brightness) enqueue(dev.proto.brightness(state.brightness));
-  if (dev.proto.login && state.last && state.last.kind !== 'music') setTimeout(() => applyAction(state.last, false), 300);
+  if ((dev.proto.login || dev.proto.id === 'melko') && state.last && state.last.kind !== 'music') setTimeout(() => applyAction(state.last, false), 300);
 }
 async function onDisconnect(){
   dev.char = null;
@@ -1279,6 +1303,8 @@ $('#musicStart').onclick = () => startMusic();
 
 $('#protoSel').innerHTML += PROTOCOLS.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
 $('#protoSel').value = store.get('proto', 'auto');
+$('#melkStyleSel').value = melkStyle();
+$('#melkStyleSel').onchange = e => { store.set('melkStyle', e.target.value); log('MELK style: ' + e.target.value); toast('Style saved. Tap Reconnect to apply.'); };
 $('#protoSel').onchange = e => store.set('proto', e.target.value);
 $('#gap').value = state.gap; $('#gap').oninput = e => { state.gap = +e.target.value; store.set('gap', state.gap); updateLabels(); };
 $('#rawSend').onclick = () => {

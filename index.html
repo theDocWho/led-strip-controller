@@ -160,25 +160,25 @@
       <p class="hint">These run on the strip's own chip, so they keep going even if you close the app. Mode names can vary between controllers.</p>
     </div>
     <div class="card" id="pxCard" hidden>
-      <h3>Moving effects <span class="hint">(addressable strip)</span></h3>
+      <h3>Moving patterns <span class="hint">(Lotus Lamp X)</span></h3>
       <div class="inline">
         <button class="small" id="pxPrev">◀</button>
-        <input type="number" id="pxNum" min="1" max="255" value="1" style="width:74px">
+        <input type="number" id="pxNum" min="1" max="213" value="2" style="width:74px">
         <button class="small" id="pxNext">▶</button>
         <button class="small" id="pxStar" title="Save as favourite">☆ Save</button>
       </div>
       <div id="pxName" style="margin-top:8px;font-weight:600"></div>
-      <div class="row"><label>Group</label><select id="pxGroup" style="flex:1"></select></div>
+      <div class="row"><label>Category</label><select id="pxGroup" style="flex:1"></select></div>
       <div class="row"><label>Speed</label><input type="range" id="pxSpeed" min="1" max="100" value="50"><span class="val" id="pxSpeedV">50</span></div>
       <div class="btns wide" style="margin-top:8px">
         <button id="pxRun" class="primary">Run effect</button>
         <button id="pxTour">Auto-tour</button>
       </div>
       <div class="row"><label>Tour each</label><input type="range" id="pxTourSec" min="2" max="30" value="6"><span class="val" id="pxTourSecV">6s</span></div>
-      <p class="hint">Numbers 1–220 are the chase, flow, fire, curtain, elevator and similar effects these controllers carry. The names come from a related controller (MELK-OA21) and some numbers may look different or do nothing on yours. Use ◀ ▶ or Auto-tour to browse, then <b>☆ Save</b> the ones you like under your own name.</p>
+      <p class="hint">The 213 moving RGBIC patterns from the Lotus Lamp X app, with the app's own names. They run on the strip itself. Use ◀ ▶, a category, or Auto-tour to browse, and <b>☆ Save</b> the ones you like.</p>
     </div>
     <div class="card" id="pxFavCard" hidden>
-      <h3>Favourite effects</h3>
+      <h3>Favourite patterns</h3>
       <div id="pxFavs"></div>
     </div>
   </section>
@@ -340,7 +340,7 @@
 
 <script>
 'use strict';
-const APP_VERSION = 'v6 · 8 Nov 2026';
+const APP_VERSION = 'v7 · 8 Nov 2026';
 /* ============================== helpers ============================== */
 const $ = s => document.querySelector(s);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -387,38 +387,245 @@ const triCmds = {
   modes: TRI_MODES,
   mode: (m, s) => [[0xbb, m, Math.round(31 - (s/100)*30), 0x44]] // 1 = fastest, 31 = slowest
 };
-const MELKO_MODES = [
-  [0x01,'Magic back'],[0x02,'Effect 2'],[0x03,'Effect 3'],[0x04,'Effect 4'],[0x05,'Effect 5'],
-  [0x10,'Rainbow cycle'],[0x20,'Colour wave'],[0x30,'Breathing'],[0x40,'Strobe'],[0x80,'Jump: RGB'],[0x90,'Fade: RGB'],[0xcf,'Blue scroll']
+/* MELK-OA10 (Lotus Lamp X) RGBIC patterns: [id, name, category].
+   Table and frame layouts from lotus-lamp-rs (github.com/bombpersons/lotus-lamp-rs),
+   which was verified on MELK-OA10 hardware. */
+const MELK_PATTERNS = [
+[0x00,"Auto Play","Basic"],
+[0x01,"Magic Forward","Basic"],
+[0x02,"Magic Back","Basic"],
+[0xd4,"7-Color Energy","Basic"],
+[0xc1,"7-Color Jump","Basic"],
+[0xc2,"R-G-B Jump","Basic"],
+[0xc3,"Y-C-P Jump","Basic"],
+[0xc4,"7-Color Strobe","Basic"],
+[0xc5,"R-G-B Strobe","Basic"],
+[0xc6,"Y-C-P Strobe","Basic"],
+[0xc7,"7-Color Gradual","Basic"],
+[0xc8,"R-Y Gradual","Basic"],
+[0xc9,"R-P Gradual","Basic"],
+[0xca,"G-C Gradual","Basic"],
+[0xcb,"G-Y Gradual","Basic"],
+[0xcc,"B-P Gradual","Basic"],
+[0xcd,"Red Marquee","Basic"],
+[0xce,"Green Marquee","Basic"],
+[0xcf,"Blue Marquee","Basic"],
+[0xd0,"Yellow Marquee","Basic"],
+[0xd1,"Cyan Marquee","Basic"],
+[0xd2,"Purple Marquee","Basic"],
+[0xd3,"White Marquee","Basic"],
+[0x4d,"7-Color Race","Basic"],
+[0x4e,"7-Color Race Back","Basic"],
+[0x4f,"R-G-B Race","Basic"],
+[0x50,"R-G-B Race Back","Basic"],
+[0x51,"Y-C-P Race","Basic"],
+[0x52,"Y-C-P Race Back","Basic"],
+[0x53,"7-Color Wave","Basic"],
+[0x54,"7-Color Wave Back","Basic"],
+[0x55,"R-G-B Wave","Basic"],
+[0x56,"R-G-B Wave Back","Basic"],
+[0x57,"Y-C-P Wave","Basic"],
+[0x58,"Y-C-P Wave Back","Basic"],
+[0xb5,"7-Color Flush","Basic"],
+[0xb6,"7-Color Flush Back","Basic"],
+[0xb7,"R-G-B Flush","Basic"],
+[0xb8,"R-G-B Flush Back","Basic"],
+[0xb9,"Y-C-P Flush","Basic"],
+[0xba,"Y-C-P Flush Back","Basic"],
+[0xbb,"7-Color Flush Close","Basic"],
+[0xbc,"7-Color Flush Open","Basic"],
+[0xbd,"R-G-B Flush Close","Basic"],
+[0xbe,"R-G-B Flush Open","Basic"],
+[0xbf,"Y-C-P Flush Close","Basic"],
+[0xc0,"Y-C-P Flush Open","Basic"],
+[0x39,"7-Color Close","OpenClose"],
+[0x3a,"7-Color Open","OpenClose"],
+[0x3b,"R-G-B Close","OpenClose"],
+[0x3c,"R-G-B Open","OpenClose"],
+[0x3d,"Y-C-P Close","OpenClose"],
+[0x3e,"Y-C-P Open","OpenClose"],
+[0x3f,"Red Close","OpenClose"],
+[0x40,"Red Open","OpenClose"],
+[0x41,"Green Close","OpenClose"],
+[0x42,"Green Open","OpenClose"],
+[0x43,"Blue Close","OpenClose"],
+[0x44,"Blue Open","OpenClose"],
+[0x45,"Yellow Close","OpenClose"],
+[0x46,"Yellow Open","OpenClose"],
+[0x47,"Cyan Close","OpenClose"],
+[0x48,"Cyan Open","OpenClose"],
+[0x49,"Purple Close","OpenClose"],
+[0x4a,"Purple Open","OpenClose"],
+[0x4b,"White Close","OpenClose"],
+[0x4c,"White Open","OpenClose"],
+[0x03,"7-Color Trans","Transition"],
+[0x04,"7-Color Trans Back","Transition"],
+[0x05,"R-G-B Trans","Transition"],
+[0x06,"R-G-B Trans Back","Transition"],
+[0x07,"Y-C-P Trans","Transition"],
+[0x08,"Y-C-P Trans Back","Transition"],
+[0x09,"6-Color to Red","Transition"],
+[0x0a,"6-Color to Red Back","Transition"],
+[0x0b,"6-Color to Green","Transition"],
+[0x0c,"6-Color to Green Back","Transition"],
+[0x0d,"6-Color to Blue","Transition"],
+[0x0e,"6-Color to Blue Back","Transition"],
+[0x0f,"6-Color to Cyan","Transition"],
+[0x10,"6-Color to Cyan Back","Transition"],
+[0x11,"6-Color to Yellow","Transition"],
+[0x12,"6-Color to Yellow Back","Transition"],
+[0x13,"6-Color to Purple","Transition"],
+[0x14,"6-Color to Purple Back","Transition"],
+[0x15,"6-Color to White","Transition"],
+[0x16,"6-Color to White Back","Transition"],
+[0x27,"7-Color Water","RunningWater"],
+[0x28,"7-Color Water Back","RunningWater"],
+[0x29,"R-G-B Water","RunningWater"],
+[0x2a,"R-G-B Water Back","RunningWater"],
+[0x2b,"Y-C-P Water","RunningWater"],
+[0x2c,"Y-C-P Water Back","RunningWater"],
+[0x2d,"R-G Water","RunningWater"],
+[0x2e,"R-G Water Back","RunningWater"],
+[0x2f,"G-B Water","RunningWater"],
+[0x30,"G-B Water Back","RunningWater"],
+[0x31,"Y-B Water","RunningWater"],
+[0x32,"Y-B Water Back","RunningWater"],
+[0x33,"Y-C Water","RunningWater"],
+[0x34,"Y-C Water Back","RunningWater"],
+[0x35,"C-P Water","RunningWater"],
+[0x36,"C-P Water Back","RunningWater"],
+[0x37,"White Water","RunningWater"],
+[0x38,"White Water Back","RunningWater"],
+[0x8f,"W-R-W Flow","Flow"],
+[0x90,"W-R-W Flow Back","Flow"],
+[0x91,"W-G-W Flow","Flow"],
+[0x92,"W-G-W Flow Back","Flow"],
+[0x93,"W-B-W Flow","Flow"],
+[0x94,"W-B-W Flow Back","Flow"],
+[0x95,"W-Y-W Flow","Flow"],
+[0x96,"W-Y-W Flow Back","Flow"],
+[0x97,"W-C-W Flow","Flow"],
+[0x98,"W-C-W Flow Back","Flow"],
+[0x99,"W-P-W Flow","Flow"],
+[0x9a,"W-P-W Flow Back","Flow"],
+[0x9b,"R-W-R Flow","Flow"],
+[0x9c,"R-W-R Flow Back","Flow"],
+[0x9d,"G-W-G Flow","Flow"],
+[0x9e,"G-W-G Flow Back","Flow"],
+[0x9f,"B-W-B Flow","Flow"],
+[0xa0,"B-W-B Flow Back","Flow"],
+[0xa1,"Y-W-Y Flow","Flow"],
+[0xa2,"Y-W-Y Flow Back","Flow"],
+[0xa3,"C-W-C Flow","Flow"],
+[0xa4,"C-W-C Flow Back","Flow"],
+[0xa5,"P-W-P Flow","Flow"],
+[0xa6,"P-W-P Flow Back","Flow"],
+[0x17,"7-Color Tail","Tailing"],
+[0x18,"7-Color Tail Back","Tailing"],
+[0x19,"Red Tail","Tailing"],
+[0x1a,"Red Tail Back","Tailing"],
+[0x1b,"Green Tail","Tailing"],
+[0x1c,"Green Tail Back","Tailing"],
+[0x1d,"Blue Tail","Tailing"],
+[0x1e,"Blue Tail Back","Tailing"],
+[0x1f,"Yellow Tail","Tailing"],
+[0x20,"Yellow Tail Back","Tailing"],
+[0x21,"Cyan Tail","Tailing"],
+[0x22,"Cyan Tail Back","Tailing"],
+[0x23,"Purple Tail","Tailing"],
+[0x24,"Purple Tail Back","Tailing"],
+[0x25,"White Tail","Tailing"],
+[0x26,"White Tail Back","Tailing"],
+[0x59,"Red Running","Running"],
+[0x5b,"Green Running","Running"],
+[0x5d,"Blue Running","Running"],
+[0x5f,"Yellow Running","Running"],
+[0x61,"Cyan Running","Running"],
+[0x63,"Purple Running","Running"],
+[0x65,"White Running","Running"],
+[0x67,"7-Color Running","Running"],
+[0x69,"R-G-B Running","Running"],
+[0x6b,"Y-C-P Running","Running"],
+[0x6d,"B-P-C-Y Running","Running"],
+[0x6f,"B-G-C-Y Running","Running"],
+[0x71,"Red-Dot in White Running","Running"],
+[0x73,"Green-Dot in Red Running","Running"],
+[0x75,"Blue-Dot in Green Running","Running"],
+[0x77,"Yellow-Dot in Blue Running","Running"],
+[0x79,"Cyan-Dot in Yellow Running","Running"],
+[0x7b,"Purple-Dot in Cyan Running","Running"],
+[0x7d,"White-Dot in Purple Running","Running"],
+[0x7f,"White-Dot in Red Running","Running"],
+[0x81,"7-Color in Red Running","Running"],
+[0x83,"7-Color in Green Running","Running"],
+[0x85,"7-Color in Blue Running","Running"],
+[0x87,"7-Color in Yellow Running","Running"],
+[0x89,"7-Color in Cyan Running","Running"],
+[0x8b,"7-Color in Purple Running","Running"],
+[0x8d,"7-Color in White Running","Running"],
+[0xa7,"Green-Dot in Blue Running","Running"],
+[0xa9,"Green-Dot in Red Running","Running"],
+[0xab,"Red-Dot in Blue Running","Running"],
+[0xad,"Cyan-Dot in Yellow Running","Running"],
+[0xaf,"Yellow-Dot in Purple Running","Running"],
+[0xb1,"White-Dot in Yellow Running","Running"],
+[0xb3,"Yellow-Dot in White Running","Running"],
+[0x5a,"Red Run Back","RunningBack"],
+[0x5c,"Green Run Back","RunningBack"],
+[0x5e,"Blue Run Back","RunningBack"],
+[0x60,"Yellow Run Back","RunningBack"],
+[0x62,"Cyan Run Back","RunningBack"],
+[0x64,"Purple Run Back","RunningBack"],
+[0x66,"White Run Back","RunningBack"],
+[0x68,"7-Color Run Back","RunningBack"],
+[0x6a,"R-G-B Run Back","RunningBack"],
+[0x6c,"Y-C-P Run Back","RunningBack"],
+[0x6e,"B-P-C-Y Run Back","RunningBack"],
+[0x70,"B-G-C-Y Run Back","RunningBack"],
+[0x72,"Red-Dot in White Run Back","RunningBack"],
+[0x74,"Green-Dot in Red Run Back","RunningBack"],
+[0x76,"Blue-Dot in Green Run Back","RunningBack"],
+[0x78,"Yellow-Dot in Blue Run Back","RunningBack"],
+[0x7a,"Cyan-Dot in Yellow Run Back","RunningBack"],
+[0x7c,"Purple-Dot in Cyan Run Back","RunningBack"],
+[0x7e,"White-Dot in Purple Run Back","RunningBack"],
+[0x80,"White-Dot in Red Run Back","RunningBack"],
+[0x82,"7-Color in Red Run Back","RunningBack"],
+[0x84,"7-Color in Green Run Back","RunningBack"],
+[0x86,"7-Color in Blue Run Back","RunningBack"],
+[0x88,"7-Color in Yellow Run Back","RunningBack"],
+[0x8a,"7-Color in Cyan Run Back","RunningBack"],
+[0x8c,"7-Color in Purple Run Back","RunningBack"],
+[0x8e,"7-Color in White Run Back","RunningBack"],
+[0xa8,"Green-Dot in Blue Run Back","RunningBack"],
+[0xaa,"Green-Dot in Red Run Back","RunningBack"],
+[0xac,"Red-Dot in Blue Run Back","RunningBack"],
+[0xae,"Cyan-Dot in Yellow Run Back","RunningBack"],
+[0xb0,"Yellow-Dot in Purple Run Back","RunningBack"],
+[0xb2,"Yellow-Dot in Purple Run Back","RunningBack"],
+[0xb4,"White-Dot in Yellow Run Back","RunningBack"],
 ];
-/* Addressable ("symphony") effects 1-220, names from the elkbledom MELK-OA21 list */
-const PX_GROUPS = [[1,1,'Rainbow up'],[2,2,'Rainbow down'],[3,10,'Chase'],[11,22,'Chase pulse'],[23,52,'Chase flow'],[53,54,'Pulse flash'],
-  [55,60,'Curtain'],[61,73,'Fire'],[74,143,'Fade'],[144,167,'Chase action'],[168,181,'Elevator'],[182,193,'Bar flash'],[194,199,'Flash RGB'],
-  [200,200,'Party flash'],[201,201,'Fade bottom'],[202,211,'Pulse'],[212,219,'Fade',70],[220,220,'Fade bar']];
-const MELKO_BASIC = {0:'Auto play',1:'Magic back',16:'Rainbow cycle',32:'Colour wave',48:'Breathing',64:'Strobe',128:'Jump RGB',144:'Fade RGB',207:'Blue scroll'};
-function pxName(n){
-  for (const [a, b, name, off] of PX_GROUPS) if (n >= a && n <= b) return a === b ? name : `${name} ${n - a + 1 + (off || 0)}`;
-  return 'Effect ' + n;
-}
-function pxLabel(n){ const alt = MELKO_BASIC[n]; return `#${n} · ${pxName(n)}` + (alt && pxName(n) !== alt ? ` (OA10 list: ${alt})` : ''); }
-const MIC_MODES = [[0x80,'Flow flash'],[0x81,'Flash'],[0x82,'Rainbow'],[0x83,'Snake'],[0x84,'Rainbow 2'],[0x85,'Pulse'],[0x86,'Flow'],[0x87,'Pulse 2']];
+const PAT_CATS = { Basic:'Basic', OpenClose:'Open / close', Transition:'Transition', RunningWater:'Running water', Flow:'Flow', Tailing:'Tailing', Running:'Running', RunningBack:'Running back' };
+function patName(id){ const p = MELK_PATTERNS.find(x => x[0] === id); return p ? p[1] : 'Pattern ' + id; }
+const MIC_MODES = [[0x80,'Energy 1'],[0x81,'Rhythm 1'],[0x82,'Spectrum 1'],[0x83,'Scroll 1'],[0x84,'Energy 2'],[0x85,'Rhythm 2'],[0x86,'Spectrum 2'],[0x87,'Scroll 2']];
 const elkTimer = {
   clock: d => { const iso = d.getDay() || 7; return [0x7e,0x00,0x83,d.getHours(),d.getMinutes(),d.getSeconds(),iso,0x00,0xef]; },
   set: (on, h, m, days, en) => [0x7e,0x00,0x82,h,m,0x00,on ? 0x00 : 0x01,(days & 0x7f) | (en ? 0x80 : 0),0xef]
 };
 const PROTOCOLS = [
-  { id:'melko', name:'MELK-Ox (Lotus Lamp X: MELK-OA10/OC10/OF10)', service:0xfff0, char:0xfff3,
+  { id:'melko', name:'MELK-OA10 (Lotus Lamp X)', service:0xfff0, char:0xfff3,
     match: n => /^MELK-O/i.test(n || ''),
-    login: [[0x7e,0x07,0x83],[0x7e,0x04,0x04]],           // controller ignores commands until it gets these
-    power: on => on ? [0x7e,0x04,0x04,0xf0,0x00,0x01,0xff,0x00,0xef] : [0x7e,0x04,0x04,0x00,0x00,0x00,0xff,0x00,0xef],
+    // Firmware ignores commands until it sees this handshake; the second frame is a full power-on.
+    login: [[0x7e,0x07,0x83],[0x7e,0x04,0x04,0xf0,0x00,0x01,0xff,0x00,0xef]],
+    power: on => on ? [0x7e,0x00,0x04,0xf0,0x00,0x01,0xff,0x00,0xef] : [0x7e,0x00,0x04,0x00,0x00,0x00,0xff,0x00,0xef],
     color: (r,g,b) => [0x7e,0x00,0x05,0x03,r,g,b,0x00,0xef],
-    brightness: p => [0x7e,0x04,0x01,clamp(p,0,100),0x01,0xff,0xff,0x00,0xef],
-    modes: MELKO_MODES,
-    mode: (m, s) => [[0x7e,0x05,0x03,m,0x06,0xff,0xff,0x00,0xef],[0x7e,0x04,0x02,clamp(s,0,100),0xff,0xff,0xff,0x00,0xef]],
-    pixelFx: true,
-    mic: { on: m => [[0x7e,0x04,0x07,0x01,0xff,0xff,0xff,0x00,0xef],[0x7e,0x05,0x03,m,0x04,0xff,0xff,0x00,0xef]],
-           sens: v => [0x7e,0x04,0x06,clamp(v,0,100),0xff,0xff,0xff,0x00,0xef],
-           off: () => [0x7e,0x04,0x07,0x00,0xff,0xff,0xff,0x00,0xef] },
+    brightness: p => [0x7e,0x00,0x01,clamp(p,0,100),0x00,0x00,0x00,0x00,0xef],
+    modes: ELK_MODES,
+    mode: (m, s) => [[0x7e,0x00,0x03,m,0x03,0x00,0x00,0x00,0xef],[0x7e,0x00,0x02,clamp(s,0,100),0x00,0x00,0x00,0x00,0xef]],
+    patterns: MELK_PATTERNS,
+    pattern: (id, s) => [[0x7e,0x07,0x03,id,0x06,0xff,0xff,0x00,0xef],[0x7e,0x00,0x02,clamp(s,0,100),0x00,0x00,0x00,0x00,0xef]],
+    mic: { on: m => [[0x7e,0x07,0x03,m,0x04,0xff,0xff,0x00,0xef]],
+           sens: v => [0x7e,0x07,0x06,clamp(v,0,100),0xff,0xff,0xff,0x00,0xef] },
     timer: elkTimer },
   { id:'elk', name:'ELK-BLEDOM (duoCo / Lotus Lamp)', service:0xfff0, char:0xfff3,
     power: on => on ? [0x7e,0x00,0x04,0xf0,0x00,0x01,0xff,0x00,0xef] : [0x7e,0x00,0x04,0x00,0x00,0x00,0xff,0x00,0xef],
@@ -655,7 +862,7 @@ function setPalette(hexes){ state.steps = hexes.map(c => ({ c, fade:900, hold:40
 function fillHwModes(){
   const p = dev.proto || PROTOCOLS.find(x => x.id === (store.get('lastProto', 'melko'))) || PROTOCOLS[0];
   const known = !!dev.proto; // before connecting, show everything
-  $('#pxCard').hidden = $('#pxFavCard').hidden = known && !p.pixelFx;
+  $('#pxCard').hidden = $('#pxFavCard').hidden = known && !p.patterns;
   $('#micCard').hidden = known && !p.mic;
   $('#hwTimerCard').hidden = known && !p.timer;
   $('#hwMode').innerHTML = p.modes.map(([v, n]) => `<option value="${v}">${esc(n)}</option>`).join('');
@@ -665,7 +872,7 @@ function runHw(code, speed, save=true, opts={}){
   if (!dev.proto){ toast('Connect a strip first'); return; }
   dev.pendingColor = null;
   enqueue(...dev.proto.mode(code, speed));
-  const name = opts.name || (dev.proto.modes.find(m => m[0] === code) || [0, dev.proto.pixelFx ? pxName(code) : 'mode'])[1];
+  const name = opts.name || (dev.proto.modes.find(m => m[0] === code) || [0, 'mode ' + code])[1];
   setStatus(`${dev.device ? dev.device.name : 'Demo'} · effect: ${name}`, 'ok');
   $('#glow').style.setProperty('--glow', '#334');
   if (save) remember({ kind:'hw', code, speed });
@@ -673,37 +880,53 @@ function runHw(code, speed, save=true, opts={}){
 }
 
 /* ============================== addressable effects ============================== */
-let pxFavs = store.get('pxFavs', []);
+let pxFavs = store.get('pxFavs', []).filter(f => f && typeof f.id === 'number');
 let tourT = null;
-function pxShow(){ const n = clamp(+$('#pxNum').value || 0, 0, 255); $('#pxNum').value = n; $('#pxName').textContent = pxLabel(n);
-  const g = PX_GROUPS.findIndex(([a, b]) => n >= a && n <= b); $('#pxGroup').value = g >= 0 ? String(g) : ''; }
-function pxRun(n, opts={}){ $('#pxNum').value = n; pxShow(); runHw(n, +$('#pxSpeed').value, true, { name: pxName(n), ...opts }); }
-function pxStep(d){ let n = (+$('#pxNum').value || 0) + d; if (n < 1) n = 220; if (n > 220) n = 1; pxRun(n, { keepTour: !!tourT }); }
+const NPAT = MELK_PATTERNS.length;
+let pxIdx = clamp(store.get('pxIdx', 1), 0, NPAT - 1);
+function pxShow(){
+  const [id, name, cat] = MELK_PATTERNS[pxIdx];
+  $('#pxNum').value = pxIdx + 1;
+  $('#pxName').textContent = `${name}  ·  ${PAT_CATS[cat] || cat}  ·  id ${id}`;
+  $('#pxGroup').value = cat;
+}
+function runPattern(id, speed, save=true, opts={}){
+  stopRunner(); if (!opts.keepTour) stopTour(); ensureOn();
+  if (!dev.proto || !dev.proto.pattern){ toast('Connect your MELK strip first'); return; }
+  dev.pendingColor = null;
+  enqueue(...dev.proto.pattern(id, speed));
+  setStatus(`${dev.device ? dev.device.name : 'Demo'} · pattern: ${opts.name || patName(id)}`, 'ok');
+  $('#glow').style.setProperty('--glow', '#334');
+  if (save) remember({ kind:'pattern', id, speed });
+}
+function pxRun(opts={}){ store.set('pxIdx', pxIdx); pxShow(); runPattern(MELK_PATTERNS[pxIdx][0], +$('#pxSpeed').value, true, opts); }
+function pxStep(d){ pxIdx = (pxIdx + d + NPAT) % NPAT; pxRun({ keepTour: !!tourT }); }
 function stopTour(){ if (tourT){ clearInterval(tourT); tourT = null; $('#pxTour').textContent = 'Auto-tour'; } }
 function renderPxFavs(){
-  $('#pxFavs').innerHTML = pxFavs.length ? pxFavs.map((f, i) => `<div class="list-item"><div class="grow"><div>${esc(f.name)}</div><div class="sub">#${f.n} · speed ${f.speed}</div></div>
+  $('#pxFavs').innerHTML = pxFavs.length ? pxFavs.map((f, i) => `<div class="list-item"><div class="grow"><div>${esc(f.name)}</div><div class="sub">${esc(patName(f.id))} · speed ${f.speed}</div></div>
       <button class="small primary" data-pxa="${i}">Run</button><button class="small danger" data-pxd="${i}">✕</button></div>`).join('')
-    : '<p class="hint" style="margin:0">Tap ☆ Save on an effect you like.</p>';
-  $('#pxFavs').querySelectorAll('[data-pxa]').forEach(b => b.onclick = () => { const f = pxFavs[+b.dataset.pxa]; $('#pxSpeed').value = f.speed; updateLabels(); runHw(f.n, f.speed, true, { name: f.name }); $('#pxNum').value = f.n; pxShow(); });
+    : '<p class="hint" style="margin:0">Tap ☆ Save on a pattern you like.</p>';
+  $('#pxFavs').querySelectorAll('[data-pxa]').forEach(b => b.onclick = () => { const f = pxFavs[+b.dataset.pxa]; $('#pxSpeed').value = f.speed; updateLabels();
+    const k = MELK_PATTERNS.findIndex(x => x[0] === f.id); if (k >= 0){ pxIdx = k; pxShow(); } runPattern(f.id, f.speed, true, { name: f.name }); });
   $('#pxFavs').querySelectorAll('[data-pxd]').forEach(b => b.onclick = () => { pxFavs.splice(+b.dataset.pxd, 1); store.set('pxFavs', pxFavs); renderPxFavs(); });
 }
-$('#pxGroup').innerHTML = '<option value="">Jump to group…</option>' + PX_GROUPS.map(([a, b, name], i) => `<option value="${i}">${esc(name)}${a !== b ? ` (${b - a + 1})` : ''} · #${a}${a !== b ? '–' + b : ''}</option>`).join('');
-$('#pxGroup').onchange = e => { const g = PX_GROUPS[+e.target.value]; if (g) pxRun(g[0]); };
-$('#pxNum').onchange = () => { if (+$('#pxNum').value < 1) $('#pxNum').value = 1; pxShow(); };
+$('#pxGroup').innerHTML = Object.entries(PAT_CATS).map(([k, label]) => `<option value="${k}">${esc(label)} (${MELK_PATTERNS.filter(x => x[2] === k).length})</option>`).join('');
+$('#pxGroup').onchange = e => { const k = MELK_PATTERNS.findIndex(x => x[2] === e.target.value); if (k >= 0){ pxIdx = k; pxRun(); } };
+$('#pxNum').onchange = () => { pxIdx = clamp((+$('#pxNum').value || 1) - 1, 0, NPAT - 1); pxShow(); };
 $('#pxPrev').onclick = () => pxStep(-1);
 $('#pxNext').onclick = () => pxStep(1);
-$('#pxRun').onclick = () => pxRun(+$('#pxNum').value);
-$('#pxSpeed').onchange = () => { if (state.last.kind === 'hw' && dev.proto && dev.proto.pixelFx) runHw(state.last.code, +$('#pxSpeed').value, true, { keepTour: !!tourT }); };
+$('#pxRun').onclick = () => pxRun();
+$('#pxSpeed').onchange = () => { if (state.last.kind === 'pattern') runPattern(state.last.id, +$('#pxSpeed').value, true, { keepTour: !!tourT }); };
 $('#pxTour').onclick = () => {
   if (tourT){ stopTour(); return; }
   if (!dev.proto){ toast('Connect a strip first'); return; }
-  pxRun(+$('#pxNum').value || 1, { keepTour: true });
+  pxRun({ keepTour: true });
   $('#pxTour').textContent = 'Stop tour';
   tourT = setInterval(() => pxStep(1), (+$('#pxTourSec').value) * 1000);
 };
 $('#pxStar').onclick = () => {
-  const n = +$('#pxNum').value, name = (prompt_('Name this effect', pxName(n)) || '').trim(); if (!name) return;
-  pxFavs.unshift({ n, name, speed: +$('#pxSpeed').value }); store.set('pxFavs', pxFavs); renderPxFavs(); toast('Saved "' + name + '"');
+  const id = MELK_PATTERNS[pxIdx][0], name = (prompt_('Name this pattern', patName(id)) || '').trim(); if (!name) return;
+  pxFavs.unshift({ id, name, speed: +$('#pxSpeed').value }); store.set('pxFavs', pxFavs); renderPxFavs(); toast('Saved "' + name + '"');
 };
 function prompt_(msg, def){ try { const r = window.prompt(msg, def); return r === null ? '' : r; } catch { return def; } }
 
@@ -719,7 +942,7 @@ function runStripMic(mode, sens, save=true){
   if (save) remember({ kind:'stripmic', mode, sens });
 }
 $('#micStart').onclick = () => runStripMic(+$('#micMode').value, +$('#micSens').value);
-$('#micStop').onclick = () => { if (dev.proto && dev.proto.mic){ enqueue(dev.proto.mic.off()); showConnected(); toast('Strip mic off'); } };
+$('#micStop').onclick = () => { if (!dev.proto || !dev.proto.mic) return; if (dev.proto.mic.off) enqueue(dev.proto.mic.off()); setColor(state.color); toast('Strip mic off'); };
 $('#micSens').onchange = () => { if (dev.proto && dev.proto.mic && state.last.kind === 'stripmic') enqueue(dev.proto.mic.sens(+$('#micSens').value)); };
 
 /* timer stored on the strip (Mon=0x01 … Sun=0x40) */
@@ -887,7 +1110,8 @@ function applyAction(a, save=true){
   if (!a) return;
   if (a.kind === 'color') setColor(hexToRgb(a.hex), save);
   else if (a.kind === 'effect'){ if (a.steps){ state.steps = JSON.parse(JSON.stringify(a.steps)); saveSteps(); renderSteps(); } if (a.speed){ state.speed = a.speed; $('#speed').value = a.speed; $('#speedV').textContent = a.speed; store.set('speed', a.speed); } runEffect(a.id, save); }
-  else if (a.kind === 'hw'){ if (a.code === 0 && dev.proto && dev.proto.id === 'melko') setColor(state.color, save); else runHw(a.code, a.speed, save); }
+  else if (a.kind === 'hw'){ const ok = dev.proto && dev.proto.modes.some(m => m[0] === a.code); if (ok) runHw(a.code, a.speed, save); else setColor(state.color, save); }
+  else if (a.kind === 'pattern') runPattern(a.id, a.speed, save);
   else if (a.kind === 'stripmic') runStripMic(a.mode, a.sens, save);
   else if (a.kind === 'music'){ $('#musicMode').value = a.mode; $('#musicSens').value = a.sens; $('#musicFloor').value = a.floor; updateLabels(); startMusic(save); }
   else if (a.kind === 'image'){ const cols = a.cols, dur = a.dur, n = cols.length; startLoop('Image timeline', 25, t => { const p = (t % dur)/dur*n, i = Math.floor(p)%n; out(mix(cols[i], cols[(i+1)%n], p%1)); }); if (save) remember(a); }
@@ -897,7 +1121,8 @@ function applyScene(s){ setBrightness(s.brightness ?? state.brightness); ensureO
 function sceneChips(a){
   if (a.kind === 'color') return `<span class="chip" style="background:${a.hex}"></span>`;
   if (a.kind === 'effect' && a.steps) return a.steps.slice(0, 6).map(s => `<span class="chip" style="background:${s.c}"></span>`).join('') + ` ${esc(EFFECTS[a.id] ? EFFECTS[a.id].name : a.id)}`;
-  if (a.kind === 'hw') return 'Strip effect #' + a.code;
+  if (a.kind === 'hw') return 'Controller mode';
+  if (a.kind === 'pattern') return 'Pattern: ' + esc(patName(a.id));
   return { music:'Music sync', stripmic:'Strip mic', image:'Image timeline', text:'Text' }[a.kind] || a.kind;
 }
 function renderScenes(){

@@ -3,11 +3,11 @@
 A phone web app (installable PWA) that replaces duoCo Strip / Lotus Lamp / Happy Lighting for cheap Bluetooth RGB strips.
 
 ## Supported controllers
-Command formats for MELK-Ox come from the open-source [elkbledom](https://github.com/dave-code-ruiz/elkbledom) Home Assistant integration.
+MELK-OA10 frames and the 213-pattern table come from [lotus-lamp-rs](https://github.com/bombpersons/lotus-lamp-rs), which verified them on MELK-OA10 hardware. Other ELK details come from [elkbledom](https://github.com/dave-code-ruiz/elkbledom).
 
 | Family | Typical device names | BLE service / characteristic | Sold with app |
 |---|---|---|---|
-| MELK-Ox | `MELK-OA10`, `MELK-OC10`, `MELK-OF10`, `MELK-OG10` | `FFF0` / `FFF3` + login `7e 07 83`, `7e 04 04` | Lotus Lamp X |
+| MELK-OA10 | `MELK-OA10 …` | `FFF0` / `FFF3` + login `7e 07 83`, `7e 04 04 f0 00 01 ff 00 ef` | Lotus Lamp X |
 | ELK-BLEDOM | `ELK-BLEDOM`, `ELK-BLEDOB`, `MELK`, `LEDBLE` | `FFF0` / `FFF3` | duoCo Strip, Lotus Lamp X, Lantern |
 | Triones | `Triones-…`, `QHM-…` | `FFD5` / `FFD9` | Happy Lighting |
 | LEDBlue (old Magic Home BLE) | `LEDBlue-…` | `FFE5` / `FFE9` | Magic Home (older) |
